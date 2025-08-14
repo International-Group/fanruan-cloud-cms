@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "finereport_en_docs",
+  "info": {
+    "singularName": "finereport-en-doc",
+    "pluralName": "finereport-en-docs",
+    "displayName": "finereport-en-doc"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "summary": {
+      "type": "string",
+      "required": true
+    },
+    "content": {
+      "type": "richtext",
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "kind": "collectionType",
+  "collectionName": "templates",
+  "info": {
+    "singularName": "template",
+    "pluralName": "templates",
+    "displayName": "Template"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": {
+      "type": "uid",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": false
+    },
+    "template_status": {
+      "type": "enumeration",
+      "required": true,
+      "default": "private",
+      "enum": [
+        "public",
+        "private",
+        "delisted",
+        "pending"
+      ]
+    },
+    "template_link": {
+      "type": "string",
+      "required": true
+    },
+    "author": {
+      "type": "string",
+      "default": "FanRuan",
+      "required": true
+    },
+    "tags": {
+      "type": "component",
+      "component": "shared.tag",
+      "repeatable": true
+    },
+    "thumbnail": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "scenario": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "marketing",
+        "hr",
+        "sales",
+        "operation"
+      ]
+    },
+    "industry": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "manufacture",
+        "education"
+      ]
+    },
+    "language": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "en-us",
+        "zh-tw"
+      ]
+    },
+    "description": {
+      "type": "blocks",
+      "required": true
+    },
+    "supported": {
+      "type": "component",
+      "component": "template.supported",
+      "repeatable": false,
+      "required": true
+    },
+    "seo": {
+      "type": "component",
+      "component": "shared.seo",
+      "repeatable": false,
+      "required": true
+    },
+    "free": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "price": {
+      "type": "integer",
+      "required": false
+    },
+    "featured": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    }
+  }
+}

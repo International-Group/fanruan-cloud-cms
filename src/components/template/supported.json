@@ -1,0 +1,34 @@
+{
+  "collectionName": "components_template_supporteds",
+  "info": {
+    "displayName": "supported",
+    "icon": "layer"
+  },
+  "options": {},
+  "attributes": {
+    "product_name": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "finebi",
+        "finereport",
+        "fvs"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "required": true
+    },
+    "product_logo": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    }
+  },
+  "config": {}
+}
