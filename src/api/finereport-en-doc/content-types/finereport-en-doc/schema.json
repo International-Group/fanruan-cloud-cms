@@ -21,11 +21,32 @@
     },
     "summary": {
       "type": "string",
-      "required": true
+      "required": false
     },
     "content": {
       "type": "richtext",
-      "required": true
+      "required": false
+    },
+    "dir": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "doc_children": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::finereport-en-doc.finereport-en-doc",
+      "mappedBy": "doc_parent"
+    },
+    "doc_parent": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::finereport-en-doc.finereport-en-doc",
+      "inversedBy": "doc_children"
+    },
+    "display_order": {
+      "type": "integer",
+      "default": 999
     }
   }
 }

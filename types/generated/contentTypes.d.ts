@@ -385,10 +385,22 @@ export interface ApiFinereportEnDocFinereportEnDoc
     draftAndPublish: true;
   };
   attributes: {
-    content: Schema.Attribute.RichText & Schema.Attribute.Required;
+    content: Schema.Attribute.RichText;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    dir: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    display_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<999>;
+    doc_children: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::finereport-en-doc.finereport-en-doc'
+    >;
+    doc_parent: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::finereport-en-doc.finereport-en-doc'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -397,7 +409,7 @@ export interface ApiFinereportEnDocFinereportEnDoc
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID & Schema.Attribute.Required;
-    summary: Schema.Attribute.String & Schema.Attribute.Required;
+    summary: Schema.Attribute.String;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
