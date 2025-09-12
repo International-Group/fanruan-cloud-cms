@@ -1,6 +1,6 @@
-import type { Attribute, Schema } from '@strapi/strapi';
+import type { Schema, Struct } from '@strapi/strapi';
 
-export interface SharedSeo extends Schema.Component {
+export interface SharedSeo extends Struct.ComponentSchema {
   collectionName: 'components_shared_seos';
   info: {
     description: '';
@@ -9,40 +9,44 @@ export interface SharedSeo extends Schema.Component {
     name: 'Seo';
   };
   attributes: {
-    metaDescription: Attribute.Text & Attribute.Required;
-    metaTitle: Attribute.String & Attribute.Required;
-    shareImage: Attribute.Media<'images'>;
+    metaDescription: Schema.Attribute.Text & Schema.Attribute.Required;
+    metaTitle: Schema.Attribute.String & Schema.Attribute.Required;
+    shareImage: Schema.Attribute.Media<'images'>;
   };
 }
 
-export interface SharedTag extends Schema.Component {
+export interface SharedTag extends Struct.ComponentSchema {
   collectionName: 'components_shared_tags';
   info: {
     displayName: 'tag';
     icon: 'priceTag';
   };
   attributes: {
-    tag: Attribute.String & Attribute.Required;
+    tag: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
 
-export interface TemplateSupported extends Schema.Component {
+export interface TemplateSupported extends Struct.ComponentSchema {
   collectionName: 'components_template_supporteds';
   info: {
     displayName: 'supported';
     icon: 'layer';
   };
   attributes: {
-    product_logo: Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
-    product_name: Attribute.Enumeration<['finebi', 'finereport', 'fvs']> &
-      Attribute.Required;
-    version: Attribute.String & Attribute.Required;
+    product_logo: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    product_name: Schema.Attribute.Enumeration<
+      ['finebi', 'finereport', 'fvs']
+    > &
+      Schema.Attribute.Required;
+    version: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
 
-declare module '@strapi/types' {
-  export module Shared {
-    export interface Components {
+declare module '@strapi/strapi' {
+  export module Public {
+    export interface ComponentSchemas {
       'shared.seo': SharedSeo;
       'shared.tag': SharedTag;
       'template.supported': TemplateSupported;
