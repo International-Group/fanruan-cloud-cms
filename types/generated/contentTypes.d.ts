@@ -391,6 +391,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    desc: Schema.Attribute.RichText;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
     download_link: Schema.Attribute.String &
       Schema.Attribute.Required &
@@ -443,10 +444,8 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     seo: Schema.Attribute.Component<'shared.seo', false> &
       Schema.Attribute.Required;
     slug: Schema.Attribute.UID & Schema.Attribute.Required;
-    supported: Schema.Attribute.Component<'template.supported', false> &
-      Schema.Attribute.Required;
+    supported_version: Schema.Attribute.String & Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
-    template_description: Schema.Attribute.RichText;
     template_link: Schema.Attribute.String & Schema.Attribute.Required;
     template_status: Schema.Attribute.Enumeration<
       ['public', 'private', 'delisted', 'pending']

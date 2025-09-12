@@ -95,12 +95,6 @@
       "type": "blocks",
       "required": true
     },
-    "supported": {
-      "type": "component",
-      "component": "template.supported",
-      "repeatable": false,
-      "required": true
-    },
     "seo": {
       "type": "component",
       "component": "shared.seo",
@@ -131,13 +125,17 @@
         "FineDataLink"
       ]
     },
-    "template_description": {
+    "desc": {
       "type": "richtext",
       "required": false
     },
     "download_link": {
       "type": "string",
       "default": "#",
+      "required": true
+    },
+    "supported_version": {
+      "type": "string",
       "required": true
     }
   }

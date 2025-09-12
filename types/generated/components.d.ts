@@ -26,30 +26,11 @@ export interface SharedTag extends Struct.ComponentSchema {
   };
 }
 
-export interface TemplateSupported extends Struct.ComponentSchema {
-  collectionName: 'components_template_supporteds';
-  info: {
-    displayName: 'supported';
-    icon: 'layer';
-  };
-  attributes: {
-    product_logo: Schema.Attribute.Media<
-      'images' | 'files' | 'videos' | 'audios'
-    >;
-    product_name: Schema.Attribute.Enumeration<
-      ['finebi', 'finereport', 'fvs']
-    > &
-      Schema.Attribute.Required;
-    version: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
       'shared.seo': SharedSeo;
       'shared.tag': SharedTag;
-      'template.supported': TemplateSupported;
     }
   }
 }
