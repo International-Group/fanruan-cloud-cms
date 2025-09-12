@@ -392,6 +392,9 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    download_link: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'#'>;
     featured: Schema.Attribute.Boolean &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<false>;
@@ -419,7 +422,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     price: Schema.Attribute.Integer;
-    Product: Schema.Attribute.Enumeration<
+    product: Schema.Attribute.Enumeration<
       ['FineBI', 'FineReport', 'FineVis', 'FineDataLink']
     > &
       Schema.Attribute.Required;
@@ -443,6 +446,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     supported: Schema.Attribute.Component<'template.supported', false> &
       Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
+    template_description: Schema.Attribute.RichText;
     template_link: Schema.Attribute.String & Schema.Attribute.Required;
     template_status: Schema.Attribute.Enumeration<
       ['public', 'private', 'delisted', 'pending']

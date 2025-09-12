@@ -121,14 +121,23 @@
       "required": true,
       "default": false
     },
-    "Product": {
+    "product": {
       "type": "enumeration",
+      "required": true,
       "enum": [
         "FineBI",
         "FineReport",
         "FineVis",
         "FineDataLink"
-      ],
+      ]
+    },
+    "template_description": {
+      "type": "richtext",
+      "required": false
+    },
+    "download_link": {
+      "type": "string",
+      "default": "#",
       "required": true
     }
   }
