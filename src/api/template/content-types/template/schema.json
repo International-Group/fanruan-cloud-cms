@@ -4,7 +4,8 @@
   "info": {
     "singularName": "template",
     "pluralName": "templates",
-    "displayName": "Template"
+    "displayName": "Template",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -60,18 +61,26 @@
       "type": "enumeration",
       "required": true,
       "enum": [
-        "marketing",
-        "hr",
-        "sales",
-        "operation"
+        "Financial Performance",
+        "Revenue Optimization",
+        "Operational Excellence",
+        "Customer Experience",
+        "Supply Chain Intelligence",
+        "Workforce Analytics",
+        "Quality Assurance",
+        "Strategic Planning"
       ]
     },
     "industry": {
       "type": "enumeration",
       "required": true,
       "enum": [
-        "manufacture",
-        "education"
+        "Manufacturing & Supply Chain",
+        "Retail & E-commerce",
+        "Public Sector",
+        "Real Estate & Property",
+        "Healthcare & Life Sciences",
+        "Universal Solutions"
       ]
     },
     "language": {
@@ -111,6 +120,16 @@
       "type": "boolean",
       "required": true,
       "default": false
+    },
+    "Product": {
+      "type": "enumeration",
+      "enum": [
+        "FineBI",
+        "FineReport",
+        "FineVis",
+        "FineDataLink"
+      ],
+      "required": true
     }
   }
 }
