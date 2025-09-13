@@ -75,12 +75,15 @@
       "type": "enumeration",
       "required": true,
       "enum": [
-        "Manufacturing & Supply Chain",
-        "Retail & E-commerce",
+        "Manufacturing",
+        "Supply Chain",
+        "Retail",
+        "E-commerce",
         "Public Sector",
-        "Real Estate & Property",
-        "Healthcare & Life Sciences",
-        "Universal Solutions"
+        "Real Estate",
+        "Healthcare",
+        "Universal Solutions",
+        "Logistics"
       ]
     },
     "language": {
@@ -90,10 +93,6 @@
         "en-us",
         "zh-tw"
       ]
-    },
-    "description": {
-      "type": "blocks",
-      "required": true
     },
     "seo": {
       "type": "component",
@@ -125,7 +124,7 @@
         "FineDataLink"
       ]
     },
-    "desc": {
+    "description": {
       "type": "richtext",
       "required": false
     },
@@ -137,6 +136,9 @@
     "supported_version": {
       "type": "string",
       "required": true
+    },
+    "saved": {
+      "type": "integer"
     }
   }
 }

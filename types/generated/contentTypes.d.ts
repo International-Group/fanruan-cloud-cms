@@ -391,8 +391,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    desc: Schema.Attribute.RichText;
-    description: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    description: Schema.Attribute.RichText;
     download_link: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'#'>;
@@ -404,12 +403,15 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<true>;
     industry: Schema.Attribute.Enumeration<
       [
-        'Manufacturing & Supply Chain',
-        'Retail & E-commerce',
+        'Manufacturing',
+        'Supply Chain',
+        'Retail',
+        'E-commerce',
         'Public Sector',
-        'Real Estate & Property',
-        'Healthcare & Life Sciences',
+        'Real Estate',
+        'Healthcare',
         'Universal Solutions',
+        'Logistics',
       ]
     > &
       Schema.Attribute.Required;
@@ -428,6 +430,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
+    saved: Schema.Attribute.Integer;
     scenario: Schema.Attribute.Enumeration<
       [
         'Financial Performance',
