@@ -16,6 +16,9 @@
     },
     "test2": {
       "type": "string"
+    },
+    "test3": {
+      "type": "string"
     }
   }
 }
