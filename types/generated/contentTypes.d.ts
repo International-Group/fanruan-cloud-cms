@@ -535,7 +535,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     slug: Schema.Attribute.UID & Schema.Attribute.Required;
     supported_version: Schema.Attribute.String & Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
-    template_link: Schema.Attribute.String & Schema.Attribute.Required;
+    template_link: Schema.Attribute.Text & Schema.Attribute.Required;
     template_status: Schema.Attribute.Enumeration<
       ['public', 'private', 'delisted', 'pending']
     > &

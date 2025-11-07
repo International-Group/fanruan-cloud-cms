@@ -2,6 +2,10 @@ module.exports = ({ env }) => ({
   upload: {
     config: {
       provider: 'aws-s3',
+      // 支持上传任何文件类型
+      allowedFormats: null,
+      // 2GB
+      sizeLimit: 2 * 1024 * 1024 * 1024,
       providerOptions: {
         baseUrl: env('CDN_URL'),
         rootPath: env('CDN_ROOT_PATH'),

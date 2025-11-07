@@ -4,7 +4,18 @@ export default [
   'strapi::cors',
   'strapi::poweredBy',
   'strapi::query',
-  'strapi::body',
+  {
+    name: 'strapi::body',
+    config: {
+      // 主要限制
+      formLimit: '2gb',
+      jsonLimit: '2gb',
+      textLimit: '2gb',
+      formidable: {
+        maxFileSize: 2 * 1024 * 1024 * 1024, // 2GB
+      },
+    },
+  },
   'strapi::session',
   'strapi::favicon',
   'strapi::public',

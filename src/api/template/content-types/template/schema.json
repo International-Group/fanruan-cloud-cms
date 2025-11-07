@@ -33,7 +33,7 @@
       ]
     },
     "template_link": {
-      "type": "string",
+      "type": "text",
       "required": true
     },
     "author": {
