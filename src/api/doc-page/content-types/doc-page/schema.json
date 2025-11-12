@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "doc_pages",
+  "info": {
+    "singularName": "doc-page",
+    "pluralName": "doc-pages",
+    "displayName": "Doc Page"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "url": {
+      "type": "uid",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "content": {
+      "type": "richtext",
+      "required": true
+    },
+    "doc": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::doc.doc",
+      "inversedBy": "doc_pages"
+    }
+  }
+}

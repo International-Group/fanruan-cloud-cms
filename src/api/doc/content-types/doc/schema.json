@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "docs",
+  "info": {
+    "singularName": "doc",
+    "pluralName": "docs",
+    "displayName": "Doc"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "url": {
+      "type": "uid",
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "doc_pages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::doc-page.doc-page",
+      "mappedBy": "doc"
+    }
+  }
+}
