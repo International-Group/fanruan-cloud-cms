@@ -14,7 +14,8 @@
   "attributes": {
     "slug": {
       "type": "uid",
-      "required": true
+      "targetField": "name",
+      "required": false
     },
     "name": {
       "type": "string",
@@ -24,7 +25,7 @@
     "template_status": {
       "type": "enumeration",
       "required": true,
-      "default": "private",
+      "default": "public",
       "enum": [
         "public",
         "private",
@@ -139,6 +140,13 @@
     },
     "saved": {
       "type": "integer"
+    },
+    "download_file": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "files"
+      ]
     }
   }
 }
