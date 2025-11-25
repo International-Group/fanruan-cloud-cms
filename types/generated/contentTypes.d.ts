@@ -536,6 +536,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
+    download_file: Schema.Attribute.Media<'files'>;
     download_link: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'#'>;
@@ -590,7 +591,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required;
     seo: Schema.Attribute.Component<'shared.seo', false> &
       Schema.Attribute.Required;
-    slug: Schema.Attribute.UID & Schema.Attribute.Required;
+    slug: Schema.Attribute.UID<'name'>;
     supported_version: Schema.Attribute.String & Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
     template_link: Schema.Attribute.Text & Schema.Attribute.Required;
@@ -598,7 +599,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       ['public', 'private', 'delisted', 'pending']
     > &
       Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'private'>;
+      Schema.Attribute.DefaultTo<'public'>;
     thumbnail: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'
     > &
