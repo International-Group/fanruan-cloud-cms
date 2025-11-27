@@ -536,7 +536,6 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
-    download_file: Schema.Attribute.Media<'files'>;
     download_link: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'#'>;
@@ -600,6 +599,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'public'>;
+    templateFile: Schema.Attribute.Media;
     thumbnail: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'
     > &

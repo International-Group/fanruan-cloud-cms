@@ -19,12 +19,17 @@ module.exports = ({ env }) => ({
             ACL: env('AWS_ACL', 'public-read'),
             signedUrlExpires: env('AWS_SIGNED_URL_EXPIRES', 15 * 60),
             Bucket: env('AWS_BUCKET'),
+            ContentType: 'application/octet-stream',
           },
         },
       },
       actionOptions: {
-        upload: {},
-        uploadStream: {},
+        upload: {
+          sizeLimit: 500 * 1024 * 1024, // 500MB
+        },
+        uploadStream: {
+          sizeLimit: 500 * 1024 * 1024,
+        },
         delete: {},
       },
     },
