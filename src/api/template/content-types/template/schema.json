@@ -141,12 +141,9 @@
     "saved": {
       "type": "integer"
     },
-    "download_file": {
+    "templateFile": {
       "type": "media",
-      "multiple": false,
-      "allowedTypes": [
-        "files"
-      ]
+      "multiple": false
     }
   }
 }
