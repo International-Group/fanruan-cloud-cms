@@ -556,6 +556,10 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
         'Healthcare',
         'Universal Solutions',
         'Logistics',
+        'Financial',
+        'Energy & Utilities',
+        'General Business',
+        'Tutorials & Learning',
       ]
     > &
       Schema.Attribute.Required;
