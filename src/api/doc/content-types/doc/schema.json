@@ -24,6 +24,10 @@
       "relation": "oneToMany",
       "target": "api::doc-page.doc-page",
       "mappedBy": "doc"
+    },
+    "listed": {
+      "type": "boolean",
+      "default": false
     }
   }
 }
