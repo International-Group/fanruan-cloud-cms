@@ -548,19 +548,20 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<true>;
     industry: Schema.Attribute.Enumeration<
       [
+        'General Business',
+        'Learning',
         'Manufacturing',
-        'Supply Chain',
         'Retail',
         'E-commerce',
-        'Public Sector',
-        'Real Estate',
         'Healthcare',
-        'Universal Solutions',
+        'Real Estate',
         'Logistics',
         'Financial',
         'Energy & Utilities',
-        'General Business',
         'Tutorials & Learning',
+        'Energy',
+        'Utilities',
+        'Education',
       ]
     > &
       Schema.Attribute.Required;
