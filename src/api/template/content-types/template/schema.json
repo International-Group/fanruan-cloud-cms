@@ -76,19 +76,20 @@
       "type": "enumeration",
       "required": true,
       "enum": [
+        "General Business",
+        "Learning",
         "Manufacturing",
-        "Supply Chain",
         "Retail",
         "E-commerce",
-        "Public Sector",
-        "Real Estate",
         "Healthcare",
-        "Universal Solutions",
+        "Real Estate",
         "Logistics",
         "Financial",
         "Energy & Utilities",
-        "General Business",
-        "Tutorials & Learning"
+        "Tutorials & Learning",
+        "Energy",
+        "Utilities",
+        "Education"
       ]
     },
     "language": {
