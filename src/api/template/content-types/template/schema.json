@@ -144,7 +144,8 @@
       "required": true
     },
     "viewed": {
-      "type": "biginteger"
+      "type": "biginteger",
+      "default": "0"
     },
     "templateFile": {
       "type": "media",

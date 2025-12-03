@@ -612,7 +612,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    viewed: Schema.Attribute.BigInteger;
+    viewed: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
   };
 }
 
