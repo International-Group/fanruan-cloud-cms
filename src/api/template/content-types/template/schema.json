@@ -143,8 +143,8 @@
       "type": "string",
       "required": true
     },
-    "saved": {
-      "type": "integer"
+    "viewed": {
+      "type": "biginteger"
     },
     "templateFile": {
       "type": "media",
