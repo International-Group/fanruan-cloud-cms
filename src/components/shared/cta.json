@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_shared_ctas",
+  "info": {
+    "displayName": "cta",
+    "icon": "phone"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "desc": {
+      "type": "string"
+    },
+    "button": {
+      "type": "string"
+    },
+    "button_link": {
+      "type": "string"
+    }
+  },
+  "config": {}
+}

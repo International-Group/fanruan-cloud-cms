@@ -1,5 +1,47 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface SharedBanner extends Struct.ComponentSchema {
+  collectionName: 'components_shared_banners';
+  info: {
+    displayName: 'banner';
+    icon: 'layout';
+  };
+  attributes: {
+    banner_img: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    button: Schema.Attribute.String;
+    button_link: Schema.Attribute.String;
+    desc: Schema.Attribute.String;
+    h1: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface SharedCta extends Struct.ComponentSchema {
+  collectionName: 'components_shared_ctas';
+  info: {
+    displayName: 'cta';
+    icon: 'phone';
+  };
+  attributes: {
+    button: Schema.Attribute.String;
+    button_link: Schema.Attribute.String;
+    desc: Schema.Attribute.String;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface SharedGlossary extends Struct.ComponentSchema {
+  collectionName: 'components_shared_glossaries';
+  info: {
+    displayName: 'glossary';
+    icon: 'feather';
+  };
+  attributes: {
+    slug: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface SharedSeo extends Struct.ComponentSchema {
   collectionName: 'components_shared_seos';
   info: {
@@ -29,6 +71,9 @@ export interface SharedTag extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'shared.banner': SharedBanner;
+      'shared.cta': SharedCta;
+      'shared.glossary': SharedGlossary;
       'shared.seo': SharedSeo;
       'shared.tag': SharedTag;
     }

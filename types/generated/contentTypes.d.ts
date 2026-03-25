@@ -518,6 +518,83 @@ export interface ApiDocDoc extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiLandingLanding extends Struct.CollectionTypeSchema {
+  collectionName: 'landings';
+  info: {
+    displayName: 'Landing';
+    pluralName: 'landings';
+    singularName: 'landing';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    Banner: Schema.Attribute.Component<'shared.banner', false> &
+      Schema.Attribute.Required;
+    content: Schema.Attribute.RichText;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    Cta: Schema.Attribute.Component<'shared.cta', false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::landing.landing'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    seo: Schema.Attribute.Component<'shared.seo', false>;
+    slug: Schema.Attribute.UID & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiResourceResource extends Struct.CollectionTypeSchema {
+  collectionName: 'resources';
+  info: {
+    displayName: 'Resource';
+    pluralName: 'resources';
+    singularName: 'resource';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    banner: Schema.Attribute.Component<'shared.banner', false> &
+      Schema.Attribute.Required;
+    content: Schema.Attribute.RichText;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    cta: Schema.Attribute.Component<'shared.cta', false>;
+    glossary: Schema.Attribute.Component<'shared.glossary', true>;
+    industry: Schema.Attribute.Enumeration<
+      ['Manufacturing', 'Financial Services', 'Public Sector', 'Retail']
+    > &
+      Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::resource.resource'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    resource: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    seo: Schema.Attribute.Component<'shared.seo', false>;
+    slug: Schema.Attribute.UID & Schema.Attribute.Required;
+    type: Schema.Attribute.Enumeration<
+      ['On-Demand Webinar', 'Solution Brief', 'Whitepaper']
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    video: Schema.Attribute.String;
+  };
+}
+
 export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
   collectionName: 'templates';
   info: {
@@ -1129,6 +1206,8 @@ declare module '@strapi/strapi' {
       'api::dictionary.dictionary': ApiDictionaryDictionary;
       'api::doc-page.doc-page': ApiDocPageDocPage;
       'api::doc.doc': ApiDocDoc;
+      'api::landing.landing': ApiLandingLanding;
+      'api::resource.resource': ApiResourceResource;
       'api::template.template': ApiTemplateTemplate;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

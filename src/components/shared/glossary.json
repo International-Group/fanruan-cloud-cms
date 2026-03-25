@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_shared_glossaries",
+  "info": {
+    "displayName": "glossary",
+    "icon": "feather"
+  },
+  "options": {},
+  "attributes": {
+    "slug": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "config": {}
+}
