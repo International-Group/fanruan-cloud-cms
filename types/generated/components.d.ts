@@ -38,7 +38,10 @@ export interface SharedGlossary extends Struct.ComponentSchema {
     icon: 'feather';
   };
   attributes: {
-    slug: Schema.Attribute.String & Schema.Attribute.Required;
+    desc: Schema.Attribute.String;
+    img: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    url: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
 

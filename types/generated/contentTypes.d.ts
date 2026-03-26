@@ -568,7 +568,6 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    cta: Schema.Attribute.Component<'shared.cta', false>;
     glossary: Schema.Attribute.Component<'shared.glossary', true>;
     industry: Schema.Attribute.Enumeration<
       ['Manufacturing', 'Financial Services', 'Public Sector', 'Retail']
