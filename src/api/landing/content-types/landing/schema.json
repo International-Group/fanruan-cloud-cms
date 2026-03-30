@@ -11,6 +11,10 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "urlkey": {
+      "type": "string",
+      "required": true
+    },
     "slug": {
       "type": "uid",
       "required": true
