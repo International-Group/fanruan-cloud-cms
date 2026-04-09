@@ -23,7 +23,7 @@
       "type": "string"
     },
     "desc": {
-      "type": "string"
+      "type": "text"
     },
     "cover": {
       "type": "media",
