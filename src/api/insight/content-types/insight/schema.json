@@ -1,10 +1,10 @@
 {
   "kind": "collectionType",
-  "collectionName": "landings",
+  "collectionName": "insights",
   "info": {
-    "singularName": "landing",
-    "pluralName": "landings",
-    "displayName": "Landing"
+    "singularName": "insight",
+    "pluralName": "insights",
+    "displayName": "Insight"
   },
   "options": {
     "draftAndPublish": true
@@ -15,8 +15,8 @@
     }
   },
   "attributes": {
-    "urlkey": {
-      "type": "string",
+    "slug": {
+      "type": "uid",
       "pluginOptions": {
         "i18n": {
           "localized": true
@@ -24,8 +24,13 @@
       },
       "required": true
     },
-    "slug": {
-      "type": "uid",
+    "title": {
+      "type": "string",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
       "required": true
     },
     "seo": {
@@ -36,19 +41,7 @@
         }
       },
       "component": "shared.seo",
-      "repeatable": false,
-      "required": false
-    },
-    "Banner": {
-      "type": "component",
-      "pluginOptions": {
-        "i18n": {
-          "localized": true
-        }
-      },
-      "component": "shared.banner",
-      "repeatable": false,
-      "required": true
+      "repeatable": false
     },
     "content": {
       "type": "richtext",
@@ -58,16 +51,15 @@
         }
       }
     },
-    "Cta": {
-      "type": "component",
-      "pluginOptions": {
-        "i18n": {
-          "localized": true
-        }
-      },
-      "component": "shared.cta",
-      "repeatable": false,
-      "required": false
+    "category": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::category.category"
+    },
+    "author": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::author.author"
     }
   }
 }

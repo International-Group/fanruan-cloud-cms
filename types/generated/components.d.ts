@@ -60,6 +60,18 @@ export interface SharedSeo extends Struct.ComponentSchema {
   };
 }
 
+export interface SharedSocial extends Struct.ComponentSchema {
+  collectionName: 'components_shared_socials';
+  info: {
+    displayName: 'social';
+    icon: 'chartCircle';
+  };
+  attributes: {
+    icon: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    link: Schema.Attribute.String;
+  };
+}
+
 export interface SharedTag extends Struct.ComponentSchema {
   collectionName: 'components_shared_tags';
   info: {
@@ -78,6 +90,7 @@ declare module '@strapi/strapi' {
       'shared.cta': SharedCta;
       'shared.glossary': SharedGlossary;
       'shared.seo': SharedSeo;
+      'shared.social': SharedSocial;
       'shared.tag': SharedTag;
     }
   }
