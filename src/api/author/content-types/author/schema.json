@@ -44,10 +44,6 @@
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::insight.insight"
-    },
-    "pop_cta_style": {
-      "type": "integer",
-      "default": 5
     }
   }
 }

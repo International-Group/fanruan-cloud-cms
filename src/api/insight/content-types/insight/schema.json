@@ -83,6 +83,15 @@
         "videos",
         "audios"
       ]
+    },
+    "pop_cta_style": {
+      "type": "integer",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "default": 0
     }
   }
 }

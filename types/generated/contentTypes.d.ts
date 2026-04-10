@@ -457,7 +457,6 @@ export interface ApiAuthorAuthor extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
-    pop_cta_style: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID & Schema.Attribute.Required;
     social: Schema.Attribute.Component<'shared.social', true>;
@@ -664,6 +663,13 @@ export interface ApiInsightInsight extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::insight.insight'
     >;
+    pop_cta_style: Schema.Attribute.Integer &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     seo: Schema.Attribute.Component<'shared.seo', false> &
       Schema.Attribute.SetPluginOptions<{
