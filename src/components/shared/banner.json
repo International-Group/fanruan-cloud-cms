@@ -29,6 +29,18 @@
     },
     "button_link": {
       "type": "string"
+    },
+    "button_caption": {
+      "type": "string"
+    },
+    "style": {
+      "type": "enumeration",
+      "default": "default",
+      "enum": [
+        "default",
+        "gradient",
+        "form"
+      ]
     }
   },
   "config": {}

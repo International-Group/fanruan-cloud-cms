@@ -11,9 +11,12 @@ export interface SharedBanner extends Struct.ComponentSchema {
       'images' | 'files' | 'videos' | 'audios'
     >;
     button: Schema.Attribute.String;
+    button_caption: Schema.Attribute.String;
     button_link: Schema.Attribute.String;
     desc: Schema.Attribute.String;
     h1: Schema.Attribute.String & Schema.Attribute.Required;
+    style: Schema.Attribute.Enumeration<['default', 'gradient', 'form']> &
+      Schema.Attribute.DefaultTo<'default'>;
   };
 }
 
@@ -26,7 +29,12 @@ export interface SharedCta extends Struct.ComponentSchema {
   attributes: {
     button: Schema.Attribute.String;
     button_link: Schema.Attribute.String;
+    button2: Schema.Attribute.String;
+    button2_link: Schema.Attribute.String;
     desc: Schema.Attribute.String;
+    list_values: Schema.Attribute.Text;
+    style: Schema.Attribute.Enumeration<['light', 'dark']> &
+      Schema.Attribute.DefaultTo<'light'>;
     title: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
@@ -42,6 +50,16 @@ export interface SharedGlossary extends Struct.ComponentSchema {
     img: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface SharedList extends Struct.ComponentSchema {
+  collectionName: 'components_shared_lists';
+  info: {
+    displayName: 'list';
+  };
+  attributes: {
+    text: Schema.Attribute.String;
   };
 }
 
@@ -89,6 +107,7 @@ declare module '@strapi/strapi' {
       'shared.banner': SharedBanner;
       'shared.cta': SharedCta;
       'shared.glossary': SharedGlossary;
+      'shared.list': SharedList;
       'shared.seo': SharedSeo;
       'shared.social': SharedSocial;
       'shared.tag': SharedTag;

@@ -18,6 +18,23 @@
     },
     "button_link": {
       "type": "string"
+    },
+    "button2": {
+      "type": "string"
+    },
+    "button2_link": {
+      "type": "string"
+    },
+    "style": {
+      "type": "enumeration",
+      "default": "light",
+      "enum": [
+        "light",
+        "dark"
+      ]
+    },
+    "list_values": {
+      "type": "text"
     }
   },
   "config": {}
