@@ -658,6 +658,12 @@ export interface ApiInsightInsight extends Struct.CollectionTypeSchema {
           localized: true;
         };
       }>;
+    display_date: Schema.Attribute.Date &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

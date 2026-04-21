@@ -92,6 +92,14 @@
         }
       },
       "default": 0
+    },
+    "display_date": {
+      "type": "date",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
     }
   }
 }
