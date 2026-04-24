@@ -23,6 +23,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
+    "strapi-plugin-media-library-handler": "^0.1.6",
     "styled-components": "^6.0.0"
   },
   "engines": {
