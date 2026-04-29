@@ -1,0 +1,98 @@
+{
+  "kind": "collectionType",
+  "collectionName": "user_behaviors",
+  "info": {
+    "singularName": "user-behavior",
+    "pluralName": "user-behaviors",
+    "displayName": "UserBehavior",
+    "description": "User behavior tracking events"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "uuid": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 120
+    },
+    "evt": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120
+    },
+    "time": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "user_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "browser_finger_print": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "address": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "template_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "material_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "material_pkg_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "reuse_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "reuse_pkg_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "visual_suite_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "connector_app_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "theme_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "P1": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "P2": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "P3": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "P4": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "P5": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "PN": {
+      "type": "json"
+    }
+  }
+}
