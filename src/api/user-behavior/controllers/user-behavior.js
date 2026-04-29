@@ -6,6 +6,7 @@
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const crypto = require('crypto');
+const userBehaviorQueue = require('../utils/user-behavior-queue');
 
 const UID = 'api::user-behavior.user-behavior';
 const TRACKING_FIELDS = [
@@ -55,7 +56,7 @@ const pickFirstString = (input, keys, maxLength) => {
 
 const pickTimestamp = (value) => {
   if (value === undefined || value === null || value === '') {
-    return Date.now();
+    return String(Date.now());
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -117,12 +118,19 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
           ? input.payload
           : undefined;
 
-    const entity = await strapi.service(UID).create({ data });
-    const sanitizedEntity = await this.sanitizeOutput(entity, ctx);
+    const accepted = userBehaviorQueue.enqueue(data);
 
-    ctx.status = 201;
+    if (!accepted) {
+      return ctx.serviceUnavailable('Tracking queue is full');
+    }
+
+    ctx.status = 202;
     ctx.body = {
-      data: sanitizedEntity,
+      data: {
+        accepted: true,
+        uuid: data.uuid,
+        queued: userBehaviorQueue.size(),
+      },
     };
   },
 }));
