@@ -901,7 +901,10 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       ]
     > &
       Schema.Attribute.Required;
-    language: Schema.Attribute.Enumeration<['en-us', 'zh-tw']> &
+    jiandaoyun_data_id: Schema.Attribute.UID;
+    language: Schema.Attribute.Enumeration<
+      ['en-us', 'zh-tw', 'ko-kr', 'ru', 'ja-jp']
+    > &
       Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -932,6 +935,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     seo: Schema.Attribute.Component<'shared.seo', false> &
       Schema.Attribute.Required;
     slug: Schema.Attribute.UID<'name'>;
+    source: Schema.Attribute.String & Schema.Attribute.DefaultTo<'translation'>;
     supported_version: Schema.Attribute.String & Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
     template_link: Schema.Attribute.Text & Schema.Attribute.Required;

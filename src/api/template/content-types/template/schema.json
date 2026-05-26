@@ -97,7 +97,10 @@
       "required": true,
       "enum": [
         "en-us",
-        "zh-tw"
+        "zh-tw",
+        "ko-kr",
+        "ru",
+        "ja-jp"
       ]
     },
     "seo": {
@@ -150,6 +153,13 @@
     "templateFile": {
       "type": "media",
       "multiple": false
+    },
+    "jiandaoyun_data_id": {
+      "type": "uid"
+    },
+    "source": {
+      "type": "string",
+      "default": "translation"
     }
   }
 }
