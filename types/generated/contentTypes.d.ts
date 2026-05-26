@@ -901,6 +901,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       ]
     > &
       Schema.Attribute.Required;
+    jiandaoyun_data_id: Schema.Attribute.UID;
     language: Schema.Attribute.Enumeration<['en-us', 'zh-tw']> &
       Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;

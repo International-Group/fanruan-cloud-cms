@@ -150,6 +150,9 @@
     "templateFile": {
       "type": "media",
       "multiple": false
+    },
+    "jiandaoyun_data_id": {
+      "type": "uid"
     }
   }
 }
