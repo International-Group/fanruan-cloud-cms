@@ -901,7 +901,6 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
       ]
     > &
       Schema.Attribute.Required;
-    jiandaoyun_data_id: Schema.Attribute.UID;
     language: Schema.Attribute.Enumeration<
       ['en-us', 'zh-tw', 'ko-kr', 'ru', 'ja-jp']
     > &
@@ -935,7 +934,10 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     seo: Schema.Attribute.Component<'shared.seo', false> &
       Schema.Attribute.Required;
     slug: Schema.Attribute.UID<'name'>;
-    source: Schema.Attribute.String & Schema.Attribute.DefaultTo<'translation'>;
+    source: Schema.Attribute.Enumeration<
+      ['Translation', 'Competition', 'Recreate', 'Demo-repo']
+    > &
+      Schema.Attribute.DefaultTo<'Translation'>;
     supported_version: Schema.Attribute.String & Schema.Attribute.Required;
     tags: Schema.Attribute.Component<'shared.tag', true>;
     template_link: Schema.Attribute.Text & Schema.Attribute.Required;
@@ -953,6 +955,8 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     viewed: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    zh_template_id: Schema.Attribute.UID;
+    zh_template_link: Schema.Attribute.String;
   };
 }
 
