@@ -955,8 +955,8 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     viewed: Schema.Attribute.BigInteger & Schema.Attribute.DefaultTo<'0'>;
+    zh_file_link: Schema.Attribute.String;
     zh_template_id: Schema.Attribute.UID;
-    zh_template_link: Schema.Attribute.String;
   };
 }
 
