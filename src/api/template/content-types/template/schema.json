@@ -177,7 +177,7 @@
         }
       }
     },
-    "zh_template_link": {
+    "zh_file_link": {
       "type": "string",
       "conditions": {
         "visible": {
