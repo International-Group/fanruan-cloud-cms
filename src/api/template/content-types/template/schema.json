@@ -109,10 +109,15 @@
       "repeatable": false,
       "required": true
     },
-    "free": {
-      "type": "boolean",
-      "required": true,
-      "default": true
+    "source": {
+      "type": "enumeration",
+      "default": "Translation",
+      "enum": [
+        "Translation",
+        "Competition",
+        "Recreate",
+        "Demo-repo"
+      ]
     },
     "price": {
       "type": "integer",
@@ -146,6 +151,11 @@
       "type": "string",
       "required": true
     },
+    "free": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
     "viewed": {
       "type": "biginteger",
       "default": "0"
@@ -154,12 +164,31 @@
       "type": "media",
       "multiple": false
     },
-    "jiandaoyun_data_id": {
-      "type": "uid"
+    "zh_template_id": {
+      "type": "uid",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "source"
+            },
+            "Translation"
+          ]
+        }
+      }
     },
-    "source": {
+    "zh_template_link": {
       "type": "string",
-      "default": "translation"
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "source"
+            },
+            "Translation"
+          ]
+        }
+      }
     }
   }
 }
