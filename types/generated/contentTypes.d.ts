@@ -799,6 +799,21 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    featrued_cover: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    > &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    featured: Schema.Attribute.Boolean &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.DefaultTo<false>;
     glossary: Schema.Attribute.Component<'shared.glossary', true> &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
@@ -832,6 +847,8 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
           localized: true;
         };
       }>;
+    serie: Schema.Attribute.Relation<'manyToOne', 'api::resource.resource'>;
+    series: Schema.Attribute.Relation<'oneToMany', 'api::resource.resource'>;
     slug: Schema.Attribute.UID & Schema.Attribute.Required;
     type: Schema.Attribute.Enumeration<
       ['On-Demand Webinar', 'Solution Brief', 'Whitepaper']

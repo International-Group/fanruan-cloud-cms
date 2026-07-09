@@ -109,6 +109,42 @@
           "localized": true
         }
       }
+    },
+    "featured": {
+      "type": "boolean",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "default": false
+    },
+    "featrued_cover": {
+      "type": "media",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "serie": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::resource.resource",
+      "inversedBy": "series"
+    },
+    "series": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::resource.resource",
+      "mappedBy": "serie"
     }
   }
 }
