@@ -62,6 +62,26 @@ const assertConfig = ({ apiKey, appId, entryId }) => {
 
 const normalizeValue = (value) => String(value ?? '').trim();
 
+const maskHeaders = (headers) => ({
+  ...headers,
+  Authorization: headers.Authorization ? 'Bearer ***' : headers.Authorization,
+});
+
+const logRequest = (logger, label, url, request) => {
+  if (!logger?.info) {
+    return;
+  }
+
+  logger.info(
+    `[Template] JianDaoYun ${label} request: ${JSON.stringify({
+      url,
+      method: request.method,
+      headers: maskHeaders(request.headers || {}),
+      body: JSON.parse(request.body),
+    })}`
+  );
+};
+
 const assertResponseOk = async (response, operation) => {
   if (response.ok) {
     return;
@@ -87,6 +107,7 @@ const syncTemplateToJianDaoYun = async ({
   downloadLink,
   slug,
   fetchImpl = fetch,
+  logger,
 }) => {
   const config = getConfig();
   assertConfig(config);
@@ -113,35 +134,40 @@ const syncTemplateToJianDaoYun = async ({
     'Content-Type': 'application/json',
   };
 
-  const lookupResponse = await fetchImpl(config.dataListApiUrl, {
+  const lookupBody = {
+    app_id: config.appId,
+    entry_id: config.entryId,
+    fields: [config.fields.zhTemplateId, config.fields.language],
+    filter: {
+      rel: 'and',
+      cond: [
+        {
+          field: config.fields.zhTemplateId,
+          type: 'text',
+          method: 'eq',
+          value: [normalizeValue(zhTemplateId)],
+        },
+        {
+          field: config.fields.language,
+          type: 'text',
+          method: 'eq',
+          value: [mappedLanguage],
+        },
+      ],
+    },
+    // Fetch two so an invalid duplicate can be detected without reading a
+    // full page of unrelated form data.
+    limit: 2,
+  };
+  const lookupRequest = {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      app_id: config.appId,
-      entry_id: config.entryId,
-      fields: [config.fields.zhTemplateId, config.fields.language],
-      filter: {
-        rel: 'and',
-        cond: [
-          {
-            field: config.fields.zhTemplateId,
-            type: 'text',
-            method: 'eq',
-            value: [normalizeValue(zhTemplateId)],
-          },
-          {
-            field: config.fields.language,
-            type: 'text',
-            method: 'eq',
-            value: [mappedLanguage],
-          },
-        ],
-      },
-      // Fetch two so an invalid duplicate can be detected without reading a
-      // full page of unrelated form data.
-      limit: 2,
-    }),
-  });
+    body: JSON.stringify(lookupBody),
+  };
+
+  logRequest(logger, 'lookup', config.dataListApiUrl, lookupRequest);
+
+  const lookupResponse = await fetchImpl(config.dataListApiUrl, lookupRequest);
 
   await assertResponseOk(lookupResponse, 'lookup');
 
@@ -190,16 +216,21 @@ const syncTemplateToJianDaoYun = async ({
     [config.fields.galleryLink]: { value: galleryLink },
   };
 
-  const updateResponse = await fetchImpl(config.dataUpdateApiUrl, {
+  const updateBody = {
+    app_id: config.appId,
+    entry_id: config.entryId,
+    data_id: dataId,
+    data: updateData,
+  };
+  const updateRequest = {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      app_id: config.appId,
-      entry_id: config.entryId,
-      data_id: dataId,
-      data: updateData,
-    }),
-  });
+    body: JSON.stringify(updateBody),
+  };
+
+  logRequest(logger, 'update', config.dataUpdateApiUrl, updateRequest);
+
+  const updateResponse = await fetchImpl(config.dataUpdateApiUrl, updateRequest);
 
   await assertResponseOk(updateResponse, 'update');
 

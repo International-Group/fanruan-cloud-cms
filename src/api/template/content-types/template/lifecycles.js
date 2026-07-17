@@ -26,6 +26,7 @@ const syncTemplate = async (event) => {
       language,
       downloadLink,
       slug,
+      logger: strapi.log,
     });
 
     strapi.log.info(
