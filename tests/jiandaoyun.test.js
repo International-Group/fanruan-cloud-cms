@@ -51,7 +51,12 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
   const fetchImpl = async (url, options) => {
     requests.push({ url, options });
     if (url.endsWith('/list')) {
-      return { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) };
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ _id: 'data-id', _widget_1770003814387: 'English' }],
+        }),
+      };
     }
     return { ok: true };
   };
@@ -76,14 +81,9 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
           method: 'eq',
           value: ['template-001'],
         },
-        {
-          field: '_widget_1770003814387',
-          method: 'eq',
-          value: ['English'],
-        },
       ],
     },
-    limit: 2,
+    limit: 100,
   });
   assert.deepEqual(JSON.parse(requests[1].options.body), {
     app_id: 'test-app',
@@ -105,7 +105,7 @@ test('maps all supported Template languages to JianDaoYun values', async () => {
   };
 
   for (const [language, expectedValue] of Object.entries(mappings)) {
-    let lookupBody;
+    let updateBody;
 
     await syncDownloadLink({
       zhTemplateId: 'template-001',
@@ -113,18 +113,19 @@ test('maps all supported Template languages to JianDaoYun values', async () => {
       downloadLink: '#',
       fetchImpl: async (url, options) => {
         if (url.endsWith('/list')) {
-          lookupBody = JSON.parse(options.body);
-          return { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) };
+          return {
+            ok: true,
+            json: async () => ({
+              data: [{ _id: 'data-id', _widget_1770003814387: expectedValue }],
+            }),
+          };
         }
+        updateBody = JSON.parse(options.body);
         return { ok: true, status: 200 };
       },
     });
 
-    assert.deepEqual(lookupBody.filter.cond[1], {
-      field: '_widget_1770003814387',
-      method: 'eq',
-      value: [expectedValue],
-    });
+    assert.equal(updateBody.data_id, 'data-id');
   }
 });
 
@@ -158,7 +159,12 @@ test('allows both JianDaoYun field identifiers to be configured', async () => {
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
       return url.endsWith('/list')
-        ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
+        ? {
+            ok: true,
+            json: async () => ({
+              data: [{ _id: 'data-id', _widget_1770003814387: 'English' }],
+            }),
+          }
         : { ok: true, status: 200 };
     },
   });
@@ -179,7 +185,12 @@ test('syncs the published gallery link to its JianDaoYun widget', async () => {
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
       return url.endsWith('/list')
-        ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
+        ? {
+            ok: true,
+            json: async () => ({
+              data: [{ _id: 'data-id', _widget_1770003814387: 'English' }],
+            }),
+          }
         : { ok: true, status: 200 };
     },
   });
@@ -192,6 +203,8 @@ test('syncs the published gallery link to its JianDaoYun widget', async () => {
   assert.deepEqual(result, {
     dataId: 'data-id',
     status: 200,
+    candidateCount: 1,
+    matchedCount: 1,
     syncedFields: ['_widget_1779852152157'],
   });
 });
@@ -207,7 +220,12 @@ test('combines download and published links in one JianDaoYun update', async () 
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
       return url.endsWith('/list')
-        ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
+        ? {
+            ok: true,
+            json: async () => ({
+              data: [{ _id: 'data-id', _widget_1770003814387: 'English' }],
+            }),
+          }
         : { ok: true };
     },
   });
@@ -250,7 +268,12 @@ test('does not update when zh_template_id matches multiple records', async () =>
       downloadLink: '#',
       fetchImpl: async () => ({
         ok: true,
-        json: async () => ({ data: [{ _id: 'one' }, { _id: 'two' }] }),
+        json: async () => ({
+          data: [
+            { _id: 'one', _widget_1770003814387: 'English' },
+            { _id: 'two', _widget_1770003814387: 'English' },
+          ],
+        }),
       }),
     }),
     /Multiple JianDaoYun records found/
