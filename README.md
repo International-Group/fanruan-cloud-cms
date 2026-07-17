@@ -42,10 +42,10 @@ yarn strapi deploy
 
 ## JianDaoYun synchronization
 
-When a Template's `download_link` is updated, Strapi first queries JianDaoYun
-using both `zh_template_id` and `language`. Language values are mapped as
-`en-us → English`, `zh-tw → 繁体`, and `ko-kr → 한국의`. It then uses the
-returned record `_id` as `data_id` and updates its `new_file_link` field.
+When a Template's `download_link` is updated, Strapi queries JianDaoYun by
+`zh_template_id`, then locally selects the record by `language`. Language values
+are mapped as `en-us → English`, `zh-tw → 繁体`, and `ko-kr → 한국의`. It then
+uses the matched record `_id` as `data_id` and updates its `new_file_link` field.
 After a Template is published, the same hook also writes
 `https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
 Successful, skipped, and failed synchronization attempts are written to the

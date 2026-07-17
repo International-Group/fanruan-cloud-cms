@@ -14,6 +14,28 @@ const LANGUAGE_VALUES = {
   'ko-kr': '한국의',
 };
 
+const getFieldValues = (fieldValue) => {
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.flatMap(getFieldValues);
+  }
+
+  if (fieldValue && typeof fieldValue === 'object') {
+    if (Object.prototype.hasOwnProperty.call(fieldValue, 'value')) {
+      return getFieldValues(fieldValue.value);
+    }
+
+    for (const key of ['label', 'name', 'text']) {
+      if (Object.prototype.hasOwnProperty.call(fieldValue, key)) {
+        return getFieldValues(fieldValue[key]);
+      }
+    }
+  }
+
+  return fieldValue === null || fieldValue === undefined
+    ? []
+    : [String(fieldValue).trim()];
+};
+
 const getConfig = () => ({
   dataListApiUrl:
     process.env.JIANDAOYUN_DATA_LIST_API_URL || DEFAULT_DATA_LIST_API_URL,
@@ -88,14 +110,11 @@ const syncTemplateFields = async ({
             method: 'eq',
             value: [zhTemplateId],
           },
-          {
-            field: config.languageField,
-            method: 'eq',
-            value: [jianDaoYunLanguage],
-          },
         ],
       },
-      limit: 2,
+      // Fetch candidates by template ID, then match the select field locally.
+      // JianDaoYun does not reliably apply `eq` to every select field type.
+      limit: 100,
     }),
   });
 
@@ -113,19 +132,33 @@ const syncTemplateFields = async ({
     throw new Error('JianDaoYun lookup returned an invalid response.');
   }
 
-  if (records.length === 0) {
+  const matchingRecords = records.filter((record) =>
+    getFieldValues(record[config.languageField]).includes(jianDaoYunLanguage)
+  );
+
+  if (matchingRecords.length === 0) {
+    const receivedLanguages = [
+      ...new Set(
+        records.flatMap((record) =>
+          getFieldValues(record[config.languageField])
+        )
+      ),
+    ];
     throw new Error(
-      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}`
+      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; received languages=${receivedLanguages.join(',') || '(empty)'}`
     );
   }
 
-  if (records.length > 1) {
+  if (matchingRecords.length > 1) {
+    const candidateIds = matchingRecords
+      .map((record) => record._id || record.data_id || '(missing)')
+      .join(',');
     throw new Error(
-      `Multiple JianDaoYun records found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}`
+      `Multiple JianDaoYun records found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; data_ids=${candidateIds}`
     );
   }
 
-  const dataId = records[0]._id || records[0].data_id;
+  const dataId = matchingRecords[0]._id || matchingRecords[0].data_id;
 
   if (!dataId) {
     throw new Error('JianDaoYun lookup result does not contain a data_id.');
@@ -166,6 +199,8 @@ const syncTemplateFields = async ({
   return {
     dataId,
     status: updateResponse.status,
+    candidateCount: records.length,
+    matchedCount: matchingRecords.length,
     syncedFields: Object.keys(updateData),
   };
 };

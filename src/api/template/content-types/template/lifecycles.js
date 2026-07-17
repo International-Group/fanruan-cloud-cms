@@ -47,7 +47,7 @@ const syncTemplateToJianDaoYun = async (
           : undefined,
     });
     strapi.log.info(
-      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, language=${language}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
+      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, language=${language}, candidates=${result.candidateCount}, matches=${result.matchedCount}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
     );
   } catch (error) {
     // The Template mutation is already committed at this point. Log the sync
