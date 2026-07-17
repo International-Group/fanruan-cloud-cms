@@ -8,10 +8,18 @@ const syncTemplateToJianDaoYun = async (
 ) => {
   const { data } = event.params;
   const zhTemplateId = event.result?.zh_template_id || data.zh_template_id;
+  const language = event.result?.language || data.language;
 
   if (!zhTemplateId) {
     strapi.log.warn(
       '[Template] Skipped JianDaoYun sync because zh_template_id is empty.'
+    );
+    return;
+  }
+
+  if (!language) {
+    strapi.log.warn(
+      '[Template] Skipped JianDaoYun sync because language is empty.'
     );
     return;
   }
@@ -31,6 +39,7 @@ const syncTemplateToJianDaoYun = async (
   try {
     const result = await syncTemplateFields({
       zhTemplateId,
+      language,
       downloadLink: syncDownloadLink ? data.download_link : undefined,
       publishedLink:
         syncPublishedLink && slug
@@ -38,13 +47,13 @@ const syncTemplateToJianDaoYun = async (
           : undefined,
     });
     strapi.log.info(
-      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
+      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, language=${language}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
     );
   } catch (error) {
     // The Template mutation is already committed at this point. Log the sync
     // failure without turning a successful CMS operation into a false failure.
     strapi.log.error(
-      `[Template] Failed to sync fields to JianDaoYun (${zhTemplateId}): ${error.message}`
+      `[Template] Failed to sync fields to JianDaoYun (zh_template_id=${zhTemplateId}, language=${language}): ${error.message}`
     );
   }
 };

@@ -7,6 +7,12 @@ const DEFAULT_DATA_UPDATE_API_URL =
 const DEFAULT_LOOKUP_FIELD = '_widget_1773888010278';
 const DEFAULT_TARGET_FIELD = '_widget_1770019599166';
 const DEFAULT_PUBLISHED_LINK_FIELD = '_widget_1779852152157';
+const DEFAULT_LANGUAGE_FIELD = '_widget_1770003814387';
+const LANGUAGE_VALUES = {
+  'en-us': 'English',
+  'zh-tw': '繁体',
+  'ko-kr': '한국의',
+};
 
 const getConfig = () => ({
   dataListApiUrl:
@@ -24,6 +30,8 @@ const getConfig = () => ({
     process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD || DEFAULT_TARGET_FIELD,
   publishedLinkField:
     process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD || DEFAULT_PUBLISHED_LINK_FIELD,
+  languageField:
+    process.env.JIANDAOYUN_LANGUAGE_FIELD || DEFAULT_LANGUAGE_FIELD,
 });
 
 const assertConfig = ({ apiKey, appId, entryId }) => {
@@ -47,12 +55,18 @@ const assertConfig = ({ apiKey, appId, entryId }) => {
  */
 const syncTemplateFields = async ({
   zhTemplateId,
+  language,
   downloadLink,
   publishedLink,
   fetchImpl = fetch,
 }) => {
   const config = getConfig();
   assertConfig(config);
+  const jianDaoYunLanguage = LANGUAGE_VALUES[language];
+
+  if (!jianDaoYunLanguage) {
+    throw new Error(`Unsupported Template language for JianDaoYun sync: ${language}`);
+  }
 
   const headers = {
     Authorization: `Bearer ${config.apiKey}`,
@@ -65,7 +79,7 @@ const syncTemplateFields = async ({
     body: JSON.stringify({
       app_id: config.appId,
       entry_id: config.entryId,
-      fields: [config.lookupField],
+      fields: [config.lookupField, config.languageField],
       filter: {
         rel: 'and',
         cond: [
@@ -73,6 +87,11 @@ const syncTemplateFields = async ({
             field: config.lookupField,
             method: 'eq',
             value: [zhTemplateId],
+          },
+          {
+            field: config.languageField,
+            method: 'eq',
+            value: [jianDaoYunLanguage],
           },
         ],
       },
@@ -96,13 +115,13 @@ const syncTemplateFields = async ({
 
   if (records.length === 0) {
     throw new Error(
-      `No JianDaoYun record found for zh_template_id: ${zhTemplateId}`
+      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}`
     );
   }
 
   if (records.length > 1) {
     throw new Error(
-      `Multiple JianDaoYun records found for zh_template_id: ${zhTemplateId}`
+      `Multiple JianDaoYun records found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}`
     );
   }
 

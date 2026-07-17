@@ -43,8 +43,9 @@ yarn strapi deploy
 ## JianDaoYun synchronization
 
 When a Template's `download_link` is updated, Strapi first queries JianDaoYun
-for the record whose `zh_template_id` field matches the Template. It then uses
-the returned record `_id` as `data_id` and updates its `new_file_link` field.
+using both `zh_template_id` and `language`. Language values are mapped as
+`en-us → English`, `zh-tw → 繁体`, and `ko-kr → 한국의`. It then uses the
+returned record `_id` as `data_id` and updates its `new_file_link` field.
 After a Template is published, the same hook also writes
 `https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
 Successful, skipped, and failed synchronization attempts are written to the
@@ -66,6 +67,7 @@ JIANDAOYUN_DATA_UPDATE_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/
 JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=_widget_1773888010278
 JIANDAOYUN_NEW_FILE_LINK_FIELD=_widget_1770019599166
 JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
+JIANDAOYUN_LANGUAGE_FIELD=_widget_1770003814387
 ```
 
 If the JianDaoYun API requires fields' `_widget_...` identifiers instead of

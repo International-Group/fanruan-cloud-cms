@@ -18,6 +18,7 @@ const ENV_KEYS = [
   'JIANDAOYUN_ZH_TEMPLATE_ID_FIELD',
   'JIANDAOYUN_NEW_FILE_LINK_FIELD',
   'JIANDAOYUN_PUBLISHED_LINK_FIELD',
+  'JIANDAOYUN_LANGUAGE_FIELD',
 ];
 
 let originalEnv;
@@ -32,6 +33,7 @@ beforeEach(() => {
   delete process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD;
   delete process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD;
   delete process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD;
+  delete process.env.JIANDAOYUN_LANGUAGE_FIELD;
 });
 
 afterEach(() => {
@@ -56,6 +58,7 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
 
   await syncDownloadLink({
     zhTemplateId: 'template-001',
+    language: 'en-us',
     downloadLink: 'https://cdn.example.test/template.zip',
     fetchImpl,
   });
@@ -64,7 +67,7 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     app_id: 'test-app',
     entry_id: 'test-entry',
-    fields: ['_widget_1773888010278'],
+    fields: ['_widget_1773888010278', '_widget_1770003814387'],
     filter: {
       rel: 'and',
       cond: [
@@ -72,6 +75,11 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
           field: '_widget_1773888010278',
           method: 'eq',
           value: ['template-001'],
+        },
+        {
+          field: '_widget_1770003814387',
+          method: 'eq',
+          value: ['English'],
         },
       ],
     },
@@ -89,6 +97,55 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
   });
 });
 
+test('maps all supported Template languages to JianDaoYun values', async () => {
+  const mappings = {
+    'en-us': 'English',
+    'zh-tw': '繁体',
+    'ko-kr': '한국의',
+  };
+
+  for (const [language, expectedValue] of Object.entries(mappings)) {
+    let lookupBody;
+
+    await syncDownloadLink({
+      zhTemplateId: 'template-001',
+      language,
+      downloadLink: '#',
+      fetchImpl: async (url, options) => {
+        if (url.endsWith('/list')) {
+          lookupBody = JSON.parse(options.body);
+          return { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) };
+        }
+        return { ok: true, status: 200 };
+      },
+    });
+
+    assert.deepEqual(lookupBody.filter.cond[1], {
+      field: '_widget_1770003814387',
+      method: 'eq',
+      value: [expectedValue],
+    });
+  }
+});
+
+test('rejects an unmapped language before querying JianDaoYun', async () => {
+  let called = false;
+
+  await assert.rejects(
+    syncDownloadLink({
+      zhTemplateId: 'template-001',
+      language: 'ru',
+      downloadLink: '#',
+      fetchImpl: async () => {
+        called = true;
+      },
+    }),
+    /Unsupported Template language/
+  );
+
+  assert.equal(called, false);
+});
+
 test('allows both JianDaoYun field identifiers to be configured', async () => {
   process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD = '_widget_lookup';
   process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD = '_widget_link';
@@ -96,6 +153,7 @@ test('allows both JianDaoYun field identifiers to be configured', async () => {
 
   await syncDownloadLink({
     zhTemplateId: 'template-001',
+    language: 'en-us',
     downloadLink: '#',
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
@@ -116,6 +174,7 @@ test('syncs the published gallery link to its JianDaoYun widget', async () => {
 
   const result = await syncTemplateFields({
     zhTemplateId: 'template-001',
+    language: 'en-us',
     publishedLink: 'https://gallery.fanruan.com/abc123',
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
@@ -142,6 +201,7 @@ test('combines download and published links in one JianDaoYun update', async () 
 
   await syncTemplateFields({
     zhTemplateId: 'template-001',
+    language: 'en-us',
     downloadLink: 'https://cdn.example.test/template.zip',
     publishedLink: 'https://gallery.fanruan.com/abc123',
     fetchImpl: async (url, options) => {
@@ -169,6 +229,7 @@ test('does not update when the lookup finds no record', async () => {
   await assert.rejects(
     syncDownloadLink({
       zhTemplateId: 'missing',
+      language: 'en-us',
       downloadLink: '#',
       fetchImpl: async () => {
         callCount += 1;
@@ -185,6 +246,7 @@ test('does not update when zh_template_id matches multiple records', async () =>
   await assert.rejects(
     syncDownloadLink({
       zhTemplateId: 'duplicate',
+      language: 'en-us',
       downloadLink: '#',
       fetchImpl: async () => ({
         ok: true,
@@ -202,6 +264,7 @@ test('rejects incomplete JianDaoYun configuration before making a request', asyn
   await assert.rejects(
     syncDownloadLink({
       zhTemplateId: 'template-001',
+      language: 'en-us',
       downloadLink: '#',
       fetchImpl: async () => {
         called = true;
