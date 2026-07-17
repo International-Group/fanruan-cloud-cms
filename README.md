@@ -43,9 +43,10 @@ yarn strapi deploy
 ## JianDaoYun synchronization
 
 Whenever a Template is saved or published, Strapi queries JianDaoYun with an
-`zh_template_id AND language` filter. Both conditions use the official `text`
-filter type. Language values are mapped as `en-us → English`, `zh-tw → 繁体`,
-and `ko-kr → 한국의`. Zero or multiple matches are treated as errors.
+`zh_template_id AND language` filter. `zh_template_id` uses the official
+`number` filter type, and `language` uses the official `text` filter type.
+Language values are mapped as `en-us → English`, `zh-tw → 繁体`, and
+`ko-kr → 한국의`. Zero or multiple matches are treated as errors.
 
 For the unique match, Strapi uses its `_id` as `data_id` and updates both the
 Template `download_link` and `https://gallery.fanruan.com/{slug}` in one API

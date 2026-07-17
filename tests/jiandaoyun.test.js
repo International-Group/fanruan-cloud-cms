@@ -81,9 +81,9 @@ test('queries by template ID and language, then updates both links', async () =>
       cond: [
         {
           field: '_widget_1773888010278',
-          type: 'text',
+          type: 'number',
           method: 'eq',
-          value: ['20001696'],
+          value: [20001696],
         },
         {
           field: '_widget_1770003814387',
