@@ -20,20 +20,34 @@ const getFieldValues = (fieldValue) => {
   }
 
   if (fieldValue && typeof fieldValue === 'object') {
-    if (Object.prototype.hasOwnProperty.call(fieldValue, 'value')) {
-      return getFieldValues(fieldValue.value);
-    }
-
-    for (const key of ['label', 'name', 'text']) {
-      if (Object.prototype.hasOwnProperty.call(fieldValue, key)) {
-        return getFieldValues(fieldValue[key]);
-      }
-    }
+    // Select fields have appeared as `{ value }`, `{ value, label }`, and
+    // nested option objects across JianDaoYun API versions. Inspect all leaves
+    // so a null/internal value does not hide the human-readable label.
+    return Object.values(fieldValue).flatMap(getFieldValues);
   }
 
   return fieldValue === null || fieldValue === undefined
     ? []
     : [String(fieldValue).trim()];
+};
+
+const getRecordFieldValues = (record, field) => {
+  const containers = [record, record?.data, record?.fields];
+  const values = containers.flatMap((container) =>
+    container ? getFieldValues(container[field]) : []
+  );
+
+  // Some JianDaoYun configurations return the alias instead of the requested
+  // `_widget_...` ID.
+  if (field === DEFAULT_LANGUAGE_FIELD) {
+    values.push(
+      ...containers.flatMap((container) =>
+        container ? getFieldValues(container.language) : []
+      )
+    );
+  }
+
+  return [...new Set(values)];
 };
 
 const getConfig = () => ({
@@ -133,19 +147,28 @@ const syncTemplateFields = async ({
   }
 
   const matchingRecords = records.filter((record) =>
-    getFieldValues(record[config.languageField]).includes(jianDaoYunLanguage)
+    getRecordFieldValues(record, config.languageField).includes(jianDaoYunLanguage)
   );
 
   if (matchingRecords.length === 0) {
     const receivedLanguages = [
       ...new Set(
         records.flatMap((record) =>
-          getFieldValues(record[config.languageField])
+          getRecordFieldValues(record, config.languageField)
         )
       ),
     ];
+    const availableFields = [
+      ...new Set(
+        records.flatMap((record) => [
+          ...Object.keys(record || {}),
+          ...Object.keys(record?.data || {}),
+          ...Object.keys(record?.fields || {}),
+        ])
+      ),
+    ];
     throw new Error(
-      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; received languages=${receivedLanguages.join(',') || '(empty)'}`
+      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; candidates=${records.length}; received languages=${receivedLanguages.join(',') || '(empty)'}; available fields=${availableFields.join(',') || '(empty)'}`
     );
   }
 

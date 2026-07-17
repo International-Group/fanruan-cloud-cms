@@ -129,6 +129,41 @@ test('maps all supported Template languages to JianDaoYun values', async () => {
   }
 });
 
+test('reads a language label from a nested JianDaoYun select field', async () => {
+  let updateBody;
+
+  await syncDownloadLink({
+    zhTemplateId: 'template-001',
+    language: 'en-us',
+    downloadLink: '#',
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/list')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                _id: 'data-id',
+                data: {
+                  _widget_1770003814387: {
+                    value: null,
+                    label: 'English',
+                  },
+                },
+              },
+            ],
+          }),
+        };
+      }
+
+      updateBody = JSON.parse(options.body);
+      return { ok: true, status: 200 };
+    },
+  });
+
+  assert.equal(updateBody.data_id, 'data-id');
+});
+
 test('rejects an unmapped language before querying JianDaoYun', async () => {
   let called = false;
 
