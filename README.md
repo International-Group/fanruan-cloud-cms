@@ -61,8 +61,8 @@ The following variables are optional:
 ```text
 JIANDAOYUN_DATA_LIST_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/list
 JIANDAOYUN_DATA_UPDATE_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/update
-JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=zh_template_id
-JIANDAOYUN_NEW_FILE_LINK_FIELD=new_file_link
+JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=_widget_1773888010278
+JIANDAOYUN_NEW_FILE_LINK_FIELD=_widget_1770019599166
 JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
 ```
 

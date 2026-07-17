@@ -64,12 +64,12 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     app_id: 'test-app',
     entry_id: 'test-entry',
-    fields: ['zh_template_id'],
+    fields: ['_widget_1773888010278'],
     filter: {
       rel: 'and',
       cond: [
         {
-          field: 'zh_template_id',
+          field: '_widget_1773888010278',
           method: 'eq',
           value: ['template-001'],
         },
@@ -82,7 +82,7 @@ test('looks up the record by zh_template_id before updating new_file_link', asyn
     entry_id: 'test-entry',
     data_id: 'data-id',
     data: {
-      new_file_link: {
+      _widget_1770019599166: {
         value: 'https://cdn.example.test/template.zip',
       },
     },
@@ -148,7 +148,7 @@ test('combines download and published links in one JianDaoYun update', async () 
   });
 
   assert.deepEqual(bodies[1].data, {
-    new_file_link: {
+    _widget_1770019599166: {
       value: 'https://cdn.example.test/template.zip',
     },
     _widget_1779852152157: {

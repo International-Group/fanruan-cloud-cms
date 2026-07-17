@@ -4,8 +4,8 @@ const DEFAULT_DATA_LIST_API_URL =
   'https://api.jiandaoyun.com/api/v5/app/entry/data/list';
 const DEFAULT_DATA_UPDATE_API_URL =
   'https://api.jiandaoyun.com/api/v5/app/entry/data/update';
-const DEFAULT_LOOKUP_FIELD = 'zh_template_id';
-const DEFAULT_TARGET_FIELD = 'new_file_link';
+const DEFAULT_LOOKUP_FIELD = '_widget_1773888010278';
+const DEFAULT_TARGET_FIELD = '_widget_1770019599166';
 const DEFAULT_PUBLISHED_LINK_FIELD = '_widget_1779852152157';
 
 const getConfig = () => ({
