@@ -29,7 +29,7 @@ const syncTemplateToJianDaoYun = async (
   }
 
   try {
-    await syncTemplateFields({
+    const result = await syncTemplateFields({
       zhTemplateId,
       downloadLink: syncDownloadLink ? data.download_link : undefined,
       publishedLink:
@@ -37,6 +37,9 @@ const syncTemplateToJianDaoYun = async (
           ? `${TEMPLATE_PUBLIC_BASE_URL}/${slug}`
           : undefined,
     });
+    strapi.log.info(
+      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
+    );
   } catch (error) {
     // The Template mutation is already committed at this point. Log the sync
     // failure without turning a successful CMS operation into a false failure.

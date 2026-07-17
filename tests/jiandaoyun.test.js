@@ -101,7 +101,7 @@ test('allows both JianDaoYun field identifiers to be configured', async () => {
       bodies.push(JSON.parse(options.body));
       return url.endsWith('/list')
         ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
-        : { ok: true };
+        : { ok: true, status: 200 };
     },
   });
 
@@ -114,14 +114,14 @@ test('allows both JianDaoYun field identifiers to be configured', async () => {
 test('syncs the published gallery link to its JianDaoYun widget', async () => {
   const bodies = [];
 
-  await syncTemplateFields({
+  const result = await syncTemplateFields({
     zhTemplateId: 'template-001',
     publishedLink: 'https://gallery.fanruan.com/abc123',
     fetchImpl: async (url, options) => {
       bodies.push(JSON.parse(options.body));
       return url.endsWith('/list')
         ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
-        : { ok: true };
+        : { ok: true, status: 200 };
     },
   });
 
@@ -129,6 +129,11 @@ test('syncs the published gallery link to its JianDaoYun widget', async () => {
     _widget_1779852152157: {
       value: 'https://gallery.fanruan.com/abc123',
     },
+  });
+  assert.deepEqual(result, {
+    dataId: 'data-id',
+    status: 200,
+    syncedFields: ['_widget_1779852152157'],
   });
 });
 

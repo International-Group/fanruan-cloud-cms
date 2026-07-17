@@ -143,6 +143,12 @@ const syncTemplateFields = async ({
       `JianDaoYun update failed (${updateResponse.status}): ${responseBody}`
     );
   }
+
+  return {
+    dataId,
+    status: updateResponse.status,
+    syncedFields: Object.keys(updateData),
+  };
 };
 
 const syncDownloadLink = (options) => syncTemplateFields(options);

@@ -47,6 +47,8 @@ for the record whose `zh_template_id` field matches the Template. It then uses
 the returned record `_id` as `data_id` and updates its `new_file_link` field.
 After a Template is published, the same hook also writes
 `https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
+Successful, skipped, and failed synchronization attempts are written to the
+Strapi server log with the `zh_template_id` and relevant JianDaoYun details.
 
 Configure the integration with these environment variables:
 
