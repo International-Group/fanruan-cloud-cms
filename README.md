@@ -40,6 +40,36 @@ Strapi gives you many possible deployment options for your project including [St
 yarn strapi deploy
 ```
 
+## JianDaoYun synchronization
+
+When a Template's `download_link` is updated, Strapi first queries JianDaoYun
+for the record whose `zh_template_id` field matches the Template. It then uses
+the returned record `_id` as `data_id` and updates its `new_file_link` field.
+After a Template is published, the same hook also writes
+`https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
+
+Configure the integration with these environment variables:
+
+```text
+JIANDAOYUN_API_KEY=
+JIANDAOYUN_APP_ID=
+JIANDAOYUN_ENTRY_ID=
+```
+
+The following variables are optional:
+
+```text
+JIANDAOYUN_DATA_LIST_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/list
+JIANDAOYUN_DATA_UPDATE_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/update
+JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=_widget_1773888010278
+JIANDAOYUN_NEW_FILE_LINK_FIELD=_widget_1770019599166
+JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
+```
+
+If the JianDaoYun API requires fields' `_widget_...` identifiers instead of
+their names, set those identifiers in `JIANDAOYUN_ZH_TEMPLATE_ID_FIELD` and
+`JIANDAOYUN_NEW_FILE_LINK_FIELD`.
+
 ## 📚 Learn more
 
 - [Resource center](https://strapi.io/resource-center) - Strapi resource center.
