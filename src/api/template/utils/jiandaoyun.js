@@ -6,6 +6,7 @@ const DEFAULT_DATA_UPDATE_API_URL =
   'https://api.jiandaoyun.com/api/v5/app/entry/data/update';
 const DEFAULT_LOOKUP_FIELD = 'zh_template_id';
 const DEFAULT_TARGET_FIELD = 'new_file_link';
+const DEFAULT_PUBLISHED_LINK_FIELD = '_widget_1779852152157';
 
 const getConfig = () => ({
   dataListApiUrl:
@@ -21,6 +22,8 @@ const getConfig = () => ({
     process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD || DEFAULT_LOOKUP_FIELD,
   targetField:
     process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD || DEFAULT_TARGET_FIELD,
+  publishedLinkField:
+    process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD || DEFAULT_PUBLISHED_LINK_FIELD,
 });
 
 const assertConfig = ({ apiKey, appId, entryId }) => {
@@ -42,9 +45,10 @@ const assertConfig = ({ apiKey, appId, entryId }) => {
  *
  * Field names can be overridden when the API expects `_widget_...` identifiers.
  */
-const syncDownloadLink = async ({
+const syncTemplateFields = async ({
   zhTemplateId,
   downloadLink,
+  publishedLink,
   fetchImpl = fetch,
 }) => {
   const config = getConfig();
@@ -108,6 +112,20 @@ const syncDownloadLink = async ({
     throw new Error('JianDaoYun lookup result does not contain a data_id.');
   }
 
+  const updateData = {};
+
+  if (downloadLink !== undefined) {
+    updateData[config.targetField] = { value: downloadLink };
+  }
+
+  if (publishedLink !== undefined) {
+    updateData[config.publishedLinkField] = { value: publishedLink };
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error('No Template fields were provided for JianDaoYun sync.');
+  }
+
   const updateResponse = await fetchImpl(config.dataUpdateApiUrl, {
     method: 'POST',
     headers,
@@ -115,11 +133,7 @@ const syncDownloadLink = async ({
       app_id: config.appId,
       entry_id: config.entryId,
       data_id: dataId,
-      data: {
-        [config.targetField]: {
-          value: downloadLink,
-        },
-      },
+      data: updateData,
     }),
   });
 
@@ -131,6 +145,9 @@ const syncDownloadLink = async ({
   }
 };
 
+const syncDownloadLink = (options) => syncTemplateFields(options);
+
 module.exports = {
   syncDownloadLink,
+  syncTemplateFields,
 };

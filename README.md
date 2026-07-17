@@ -45,6 +45,8 @@ yarn strapi deploy
 When a Template's `download_link` is updated, Strapi first queries JianDaoYun
 for the record whose `zh_template_id` field matches the Template. It then uses
 the returned record `_id` as `data_id` and updates its `new_file_link` field.
+After a Template is published, the same hook also writes
+`https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
 
 Configure the integration with these environment variables:
 
@@ -61,6 +63,7 @@ JIANDAOYUN_DATA_LIST_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/li
 JIANDAOYUN_DATA_UPDATE_API_URL=https://api.jiandaoyun.com/api/v5/app/entry/data/update
 JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=zh_template_id
 JIANDAOYUN_NEW_FILE_LINK_FIELD=new_file_link
+JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
 ```
 
 If the JianDaoYun API requires fields' `_widget_...` identifiers instead of

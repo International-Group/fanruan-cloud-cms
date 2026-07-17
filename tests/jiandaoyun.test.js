@@ -3,7 +3,10 @@
 const assert = require('node:assert/strict');
 const { afterEach, beforeEach, test } = require('node:test');
 
-const { syncDownloadLink } = require('../src/api/template/utils/jiandaoyun');
+const {
+  syncDownloadLink,
+  syncTemplateFields,
+} = require('../src/api/template/utils/jiandaoyun');
 
 const ENV_KEYS = [
   'JIANDAOYUN_API_URL',
@@ -14,6 +17,7 @@ const ENV_KEYS = [
   'JIANDAOYUN_ENTRY_ID',
   'JIANDAOYUN_ZH_TEMPLATE_ID_FIELD',
   'JIANDAOYUN_NEW_FILE_LINK_FIELD',
+  'JIANDAOYUN_PUBLISHED_LINK_FIELD',
 ];
 
 let originalEnv;
@@ -27,6 +31,7 @@ beforeEach(() => {
   process.env.JIANDAOYUN_ENTRY_ID = 'test-entry';
   delete process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD;
   delete process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD;
+  delete process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD;
 });
 
 afterEach(() => {
@@ -104,6 +109,53 @@ test('allows both JianDaoYun field identifiers to be configured', async () => {
   assert.deepEqual(bodies[1].data, {
     _widget_link: { value: '#' },
   });
+});
+
+test('syncs the published gallery link to its JianDaoYun widget', async () => {
+  const bodies = [];
+
+  await syncTemplateFields({
+    zhTemplateId: 'template-001',
+    publishedLink: 'https://gallery.fanruan.com/abc123',
+    fetchImpl: async (url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return url.endsWith('/list')
+        ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
+        : { ok: true };
+    },
+  });
+
+  assert.deepEqual(bodies[1].data, {
+    _widget_1779852152157: {
+      value: 'https://gallery.fanruan.com/abc123',
+    },
+  });
+});
+
+test('combines download and published links in one JianDaoYun update', async () => {
+  const bodies = [];
+
+  await syncTemplateFields({
+    zhTemplateId: 'template-001',
+    downloadLink: 'https://cdn.example.test/template.zip',
+    publishedLink: 'https://gallery.fanruan.com/abc123',
+    fetchImpl: async (url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return url.endsWith('/list')
+        ? { ok: true, json: async () => ({ data: [{ _id: 'data-id' }] }) }
+        : { ok: true };
+    },
+  });
+
+  assert.deepEqual(bodies[1].data, {
+    new_file_link: {
+      value: 'https://cdn.example.test/template.zip',
+    },
+    _widget_1779852152157: {
+      value: 'https://gallery.fanruan.com/abc123',
+    },
+  });
+  assert.equal(bodies.length, 2);
 });
 
 test('does not update when the lookup finds no record', async () => {
