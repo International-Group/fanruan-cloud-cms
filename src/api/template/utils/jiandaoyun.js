@@ -62,6 +62,18 @@ const assertConfig = ({ apiKey, appId, entryId }) => {
 
 const normalizeValue = (value) => String(value ?? '').trim();
 
+const normalizeNumber = (value, field) => {
+  const normalized = Number(normalizeValue(value));
+
+  if (!Number.isFinite(normalized)) {
+    throw new Error(
+      `Template ${field} must be a valid number for JianDaoYun sync.`
+    );
+  }
+
+  return normalized;
+};
+
 const maskHeaders = (headers) => ({
   ...headers,
   Authorization: headers.Authorization ? 'Bearer ***' : headers.Authorization,
@@ -97,9 +109,8 @@ const assertResponseOk = async (response, operation) => {
  * Query one JianDaoYun record by zh_template_id + language, then update both
  * its download link and public gallery link.
  *
- * Filter shape follows https://hc.jiandaoyun.com/open/14220. Both fields are
- * text filters; JianDaoYun classifies single-line text, dropdowns and radio
- * groups as `text` for this API.
+ * Filter shape follows https://hc.jiandaoyun.com/open/14220. zh_template_id is
+ * a number field in JianDaoYun; language is a text-like option field.
  */
 const syncTemplateToJianDaoYun = async ({
   zhTemplateId,
@@ -133,6 +144,10 @@ const syncTemplateToJianDaoYun = async ({
     Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json',
   };
+  const normalizedZhTemplateId = normalizeNumber(
+    zhTemplateId,
+    'zh_template_id'
+  );
 
   const lookupBody = {
     app_id: config.appId,
@@ -143,9 +158,9 @@ const syncTemplateToJianDaoYun = async ({
       cond: [
         {
           field: config.fields.zhTemplateId,
-          type: 'text',
+          type: 'number',
           method: 'eq',
-          value: [normalizeValue(zhTemplateId)],
+          value: [normalizedZhTemplateId],
         },
         {
           field: config.fields.language,
