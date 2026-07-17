@@ -1,14 +1,17 @@
-const { syncTemplateFields } = require('../../utils/jiandaoyun');
+const {
+  syncTemplateToJianDaoYun,
+} = require('../../utils/jiandaoyun');
 
-const TEMPLATE_PUBLIC_BASE_URL = 'https://gallery.fanruan.com';
+const IGNORED_UPDATE_FIELDS = new Set(['viewed', 'updatedAt']);
 
-const syncTemplateToJianDaoYun = async (
-  event,
-  { syncDownloadLink = false, syncPublishedLink = false }
-) => {
-  const { data } = event.params;
-  const zhTemplateId = event.result?.zh_template_id || data.zh_template_id;
-  const language = event.result?.language || data.language;
+const syncTemplate = async (event) => {
+  const data = event.result || event.params.data;
+  const {
+    zh_template_id: zhTemplateId,
+    language,
+    download_link: downloadLink,
+    slug,
+  } = data;
 
   if (!zhTemplateId) {
     strapi.log.warn(
@@ -17,41 +20,20 @@ const syncTemplateToJianDaoYun = async (
     return;
   }
 
-  if (!language) {
-    strapi.log.warn(
-      '[Template] Skipped JianDaoYun sync because language is empty.'
-    );
-    return;
-  }
-
-  const slug = event.result?.slug || data.slug;
-
-  if (syncPublishedLink && !slug) {
-    strapi.log.warn(
-      '[Template] Skipped JianDaoYun published link sync because slug is empty.'
-    );
-  }
-
-  if (!syncDownloadLink && (!syncPublishedLink || !slug)) {
-    return;
-  }
-
   try {
-    const result = await syncTemplateFields({
+    const result = await syncTemplateToJianDaoYun({
       zhTemplateId,
       language,
-      downloadLink: syncDownloadLink ? data.download_link : undefined,
-      publishedLink:
-        syncPublishedLink && slug
-          ? `${TEMPLATE_PUBLIC_BASE_URL}/${slug}`
-          : undefined,
+      downloadLink,
+      slug,
     });
+
     strapi.log.info(
-      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, language=${language}, candidates=${result.candidateCount}, matches=${result.matchedCount}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
+      `[Template] JianDaoYun sync succeeded: zh_template_id=${zhTemplateId}, language=${language}, data_id=${result.dataId}, status=${result.status}, fields=${result.syncedFields.join(',')}`
     );
   } catch (error) {
-    // The Template mutation is already committed at this point. Log the sync
-    // failure without turning a successful CMS operation into a false failure.
+    // The Strapi mutation has already succeeded. Keep it successful and expose
+    // the external synchronization failure in server logs.
     strapi.log.error(
       `[Template] Failed to sync fields to JianDaoYun (zh_template_id=${zhTemplateId}, language=${language}): ${error.message}`
     );
@@ -62,9 +44,9 @@ module.exports = {
   async beforeCreate(event) {
     const { data } = event.params;
 
-    // Function to generate a random 12-character alphanumeric string
     const generateSlug = (length = 12) => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let result = '';
       for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -72,40 +54,23 @@ module.exports = {
       return result;
     };
 
-    // If slug is not provided, generate one
     if (!data.slug) {
       data.slug = generateSlug();
     }
   },
 
   async afterCreate(event) {
-    const isPublished = Boolean(
-      event.result?.publishedAt || event.params.data.publishedAt
-    );
-
-    if (isPublished) {
-      await syncTemplateToJianDaoYun(event, { syncPublishedLink: true });
-    }
+    await syncTemplate(event);
   },
 
   async afterUpdate(event) {
-    const { data } = event.params;
-    const hasDownloadLink = Object.prototype.hasOwnProperty.call(
-      data,
-      'download_link'
-    );
-    const isPublishing =
-      Object.prototype.hasOwnProperty.call(data, 'publishedAt') &&
-      Boolean(event.result?.publishedAt || data.publishedAt);
+    const changedFields = Object.keys(event.params.data || {});
+    const isOnlyIgnoredUpdate =
+      changedFields.length > 0 &&
+      changedFields.every((field) => IGNORED_UPDATE_FIELDS.has(field));
 
-    // Other Template updates (for example viewed count) do not need a sync.
-    if (!hasDownloadLink && !isPublishing) {
-      return;
+    if (!isOnlyIgnoredUpdate) {
+      await syncTemplate(event);
     }
-
-    await syncTemplateToJianDaoYun(event, {
-      syncDownloadLink: hasDownloadLink,
-      syncPublishedLink: isPublishing,
-    });
   },
 };

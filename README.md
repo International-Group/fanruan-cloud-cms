@@ -42,12 +42,14 @@ yarn strapi deploy
 
 ## JianDaoYun synchronization
 
-When a Template's `download_link` is updated, Strapi queries JianDaoYun by
-`zh_template_id`, then locally selects the record by `language`. Language values
-are mapped as `en-us → English`, `zh-tw → 繁体`, and `ko-kr → 한국의`. It then
-uses the matched record `_id` as `data_id` and updates its `new_file_link` field.
-After a Template is published, the same hook also writes
-`https://gallery.fanruan.com/{slug}` to `_widget_1779852152157`.
+Whenever a Template is saved or published, Strapi queries JianDaoYun with an
+`zh_template_id AND language` filter. Both conditions use the official `text`
+filter type. Language values are mapped as `en-us → English`, `zh-tw → 繁体`,
+and `ko-kr → 한국의`. Zero or multiple matches are treated as errors.
+
+For the unique match, Strapi uses its `_id` as `data_id` and updates both the
+Template `download_link` and `https://gallery.fanruan.com/{slug}` in one API
+request.
 Successful, skipped, and failed synchronization attempts are written to the
 Strapi server log with the `zh_template_id` and relevant JianDaoYun details.
 
@@ -68,11 +70,8 @@ JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=_widget_1773888010278
 JIANDAOYUN_NEW_FILE_LINK_FIELD=_widget_1770019599166
 JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
 JIANDAOYUN_LANGUAGE_FIELD=_widget_1770003814387
+TEMPLATE_PUBLIC_BASE_URL=https://gallery.fanruan.com
 ```
-
-If the JianDaoYun API requires fields' `_widget_...` identifiers instead of
-their names, set those identifiers in `JIANDAOYUN_ZH_TEMPLATE_ID_FIELD` and
-`JIANDAOYUN_NEW_FILE_LINK_FIELD`.
 
 ## 📚 Learn more
 

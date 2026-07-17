@@ -4,50 +4,19 @@ const DEFAULT_DATA_LIST_API_URL =
   'https://api.jiandaoyun.com/api/v5/app/entry/data/list';
 const DEFAULT_DATA_UPDATE_API_URL =
   'https://api.jiandaoyun.com/api/v5/app/entry/data/update';
-const DEFAULT_LOOKUP_FIELD = '_widget_1773888010278';
-const DEFAULT_TARGET_FIELD = '_widget_1770019599166';
-const DEFAULT_PUBLISHED_LINK_FIELD = '_widget_1779852152157';
-const DEFAULT_LANGUAGE_FIELD = '_widget_1770003814387';
+const DEFAULT_PUBLIC_BASE_URL = 'https://gallery.fanruan.com';
+
+const DEFAULT_FIELDS = {
+  zhTemplateId: '_widget_1773888010278',
+  language: '_widget_1770003814387',
+  downloadLink: '_widget_1770019599166',
+  galleryLink: '_widget_1779852152157',
+};
+
 const LANGUAGE_VALUES = {
   'en-us': 'English',
   'zh-tw': '繁体',
   'ko-kr': '한국의',
-};
-
-const getFieldValues = (fieldValue) => {
-  if (Array.isArray(fieldValue)) {
-    return fieldValue.flatMap(getFieldValues);
-  }
-
-  if (fieldValue && typeof fieldValue === 'object') {
-    // Select fields have appeared as `{ value }`, `{ value, label }`, and
-    // nested option objects across JianDaoYun API versions. Inspect all leaves
-    // so a null/internal value does not hide the human-readable label.
-    return Object.values(fieldValue).flatMap(getFieldValues);
-  }
-
-  return fieldValue === null || fieldValue === undefined
-    ? []
-    : [String(fieldValue).trim()];
-};
-
-const getRecordFieldValues = (record, field) => {
-  const containers = [record, record?.data, record?.fields];
-  const values = containers.flatMap((container) =>
-    container ? getFieldValues(container[field]) : []
-  );
-
-  // Some JianDaoYun configurations return the alias instead of the requested
-  // `_widget_...` ID.
-  if (field === DEFAULT_LANGUAGE_FIELD) {
-    values.push(
-      ...containers.flatMap((container) =>
-        container ? getFieldValues(container.language) : []
-      )
-    );
-  }
-
-  return [...new Set(values)];
 };
 
 const getConfig = () => ({
@@ -60,14 +29,21 @@ const getConfig = () => ({
   apiKey: process.env.JIANDAOYUN_API_KEY,
   appId: process.env.JIANDAOYUN_APP_ID,
   entryId: process.env.JIANDAOYUN_ENTRY_ID,
-  lookupField:
-    process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD || DEFAULT_LOOKUP_FIELD,
-  targetField:
-    process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD || DEFAULT_TARGET_FIELD,
-  publishedLinkField:
-    process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD || DEFAULT_PUBLISHED_LINK_FIELD,
-  languageField:
-    process.env.JIANDAOYUN_LANGUAGE_FIELD || DEFAULT_LANGUAGE_FIELD,
+  publicBaseUrl:
+    process.env.TEMPLATE_PUBLIC_BASE_URL || DEFAULT_PUBLIC_BASE_URL,
+  fields: {
+    zhTemplateId:
+      process.env.JIANDAOYUN_ZH_TEMPLATE_ID_FIELD ||
+      DEFAULT_FIELDS.zhTemplateId,
+    language:
+      process.env.JIANDAOYUN_LANGUAGE_FIELD || DEFAULT_FIELDS.language,
+    downloadLink:
+      process.env.JIANDAOYUN_NEW_FILE_LINK_FIELD ||
+      DEFAULT_FIELDS.downloadLink,
+    galleryLink:
+      process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD ||
+      DEFAULT_FIELDS.galleryLink,
+  },
 });
 
 const assertConfig = ({ apiKey, appId, entryId }) => {
@@ -79,29 +55,57 @@ const assertConfig = ({ apiKey, appId, entryId }) => {
     .filter(([, value]) => !value)
     .map(([name]) => name);
 
-  if (missing.length) {
+  if (missing.length > 0) {
     throw new Error(`Missing JianDaoYun configuration: ${missing.join(', ')}`);
   }
 };
 
+const normalizeValue = (value) => String(value ?? '').trim();
+
+const assertResponseOk = async (response, operation) => {
+  if (response.ok) {
+    return;
+  }
+
+  const responseBody = await response.text();
+  throw new Error(
+    `JianDaoYun ${operation} failed (${response.status}): ${responseBody}`
+  );
+};
+
 /**
- * Find a JianDaoYun record by its zh_template_id field and update its link.
+ * Query one JianDaoYun record by zh_template_id + language, then update both
+ * its download link and public gallery link.
  *
- * Field names can be overridden when the API expects `_widget_...` identifiers.
+ * Filter shape follows https://hc.jiandaoyun.com/open/14220. Both fields are
+ * text filters; JianDaoYun classifies single-line text, dropdowns and radio
+ * groups as `text` for this API.
  */
-const syncTemplateFields = async ({
+const syncTemplateToJianDaoYun = async ({
   zhTemplateId,
   language,
   downloadLink,
-  publishedLink,
+  slug,
   fetchImpl = fetch,
 }) => {
   const config = getConfig();
   assertConfig(config);
-  const jianDaoYunLanguage = LANGUAGE_VALUES[language];
 
-  if (!jianDaoYunLanguage) {
-    throw new Error(`Unsupported Template language for JianDaoYun sync: ${language}`);
+  const mappedLanguage = LANGUAGE_VALUES[language];
+  if (!mappedLanguage) {
+    throw new Error(
+      `Unsupported Template language for JianDaoYun sync: ${language}`
+    );
+  }
+
+  for (const [field, value] of Object.entries({
+    zh_template_id: zhTemplateId,
+    download_link: downloadLink,
+    slug,
+  })) {
+    if (!normalizeValue(value)) {
+      throw new Error(`Template ${field} is required for JianDaoYun sync.`);
+    }
   }
 
   const headers = {
@@ -109,97 +113,82 @@ const syncTemplateFields = async ({
     'Content-Type': 'application/json',
   };
 
-  const listResponse = await fetchImpl(config.dataListApiUrl, {
+  const lookupResponse = await fetchImpl(config.dataListApiUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       app_id: config.appId,
       entry_id: config.entryId,
-      fields: [config.lookupField, config.languageField],
+      fields: [config.fields.zhTemplateId, config.fields.language],
       filter: {
         rel: 'and',
         cond: [
           {
-            field: config.lookupField,
+            field: config.fields.zhTemplateId,
+            type: 'text',
             method: 'eq',
-            value: [zhTemplateId],
+            value: [normalizeValue(zhTemplateId)],
+          },
+          {
+            field: config.fields.language,
+            type: 'text',
+            method: 'eq',
+            value: [mappedLanguage],
           },
         ],
       },
-      // Fetch candidates by template ID, then match the select field locally.
-      // JianDaoYun does not reliably apply `eq` to every select field type.
-      limit: 100,
+      // Fetch two so an invalid duplicate can be detected without reading a
+      // full page of unrelated form data.
+      limit: 2,
     }),
   });
 
-  if (!listResponse.ok) {
-    const responseBody = await listResponse.text();
-    throw new Error(
-      `JianDaoYun lookup failed (${listResponse.status}): ${responseBody}`
-    );
-  }
+  await assertResponseOk(lookupResponse, 'lookup');
 
-  const listResult = await listResponse.json();
-  const records = Array.isArray(listResult) ? listResult : listResult.data;
+  const lookupResult = await lookupResponse.json();
+  const records = lookupResult?.data;
 
   if (!Array.isArray(records)) {
     throw new Error('JianDaoYun lookup returned an invalid response.');
   }
 
-  const matchingRecords = records.filter((record) =>
-    getRecordFieldValues(record, config.languageField).includes(jianDaoYunLanguage)
-  );
-
-  if (matchingRecords.length === 0) {
-    const receivedLanguages = [
-      ...new Set(
-        records.flatMap((record) =>
-          getRecordFieldValues(record, config.languageField)
-        )
-      ),
-    ];
-    const availableFields = [
-      ...new Set(
-        records.flatMap((record) => [
-          ...Object.keys(record || {}),
-          ...Object.keys(record?.data || {}),
-          ...Object.keys(record?.fields || {}),
-        ])
-      ),
-    ];
+  if (records.length === 0) {
     throw new Error(
-      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; candidates=${records.length}; received languages=${receivedLanguages.join(',') || '(empty)'}; available fields=${availableFields.join(',') || '(empty)'}`
+      `No JianDaoYun record found for zh_template_id=${zhTemplateId}, language=${mappedLanguage}`
     );
   }
 
-  if (matchingRecords.length > 1) {
-    const candidateIds = matchingRecords
-      .map((record) => record._id || record.data_id || '(missing)')
-      .join(',');
+  if (records.length > 1) {
+    const dataIds = records.map((record) => record._id).filter(Boolean);
     throw new Error(
-      `Multiple JianDaoYun records found for zh_template_id=${zhTemplateId}, language=${jianDaoYunLanguage}; data_ids=${candidateIds}`
+      `Multiple JianDaoYun records found for zh_template_id=${zhTemplateId}, language=${mappedLanguage}; data_ids=${dataIds.join(',')}`
     );
   }
 
-  const dataId = matchingRecords[0]._id || matchingRecords[0].data_id;
+  const record = records[0];
+  const dataId = record._id;
 
   if (!dataId) {
     throw new Error('JianDaoYun lookup result does not contain a data_id.');
   }
 
-  const updateData = {};
-
-  if (downloadLink !== undefined) {
-    updateData[config.targetField] = { value: downloadLink };
+  // The API returns requested form fields at the record's top level. Validate
+  // them before updating so an ignored filter can never modify another row.
+  if (
+    normalizeValue(record[config.fields.zhTemplateId]) !==
+      normalizeValue(zhTemplateId) ||
+    normalizeValue(record[config.fields.language]) !== mappedLanguage
+  ) {
+    throw new Error(
+      `JianDaoYun lookup response did not match zh_template_id=${zhTemplateId}, language=${mappedLanguage}`
+    );
   }
 
-  if (publishedLink !== undefined) {
-    updateData[config.publishedLinkField] = { value: publishedLink };
-  }
-
-  if (Object.keys(updateData).length === 0) {
-    throw new Error('No Template fields were provided for JianDaoYun sync.');
-  }
+  const galleryLink = `${config.publicBaseUrl.replace(/\/$/, '')}/${slug}`;
+  const updateData = {
+    [config.fields.downloadLink]: { value: downloadLink },
+    [config.fields.galleryLink]: { value: galleryLink },
+  };
 
   const updateResponse = await fetchImpl(config.dataUpdateApiUrl, {
     method: 'POST',
@@ -212,25 +201,16 @@ const syncTemplateFields = async ({
     }),
   });
 
-  if (!updateResponse.ok) {
-    const responseBody = await updateResponse.text();
-    throw new Error(
-      `JianDaoYun update failed (${updateResponse.status}): ${responseBody}`
-    );
-  }
+  await assertResponseOk(updateResponse, 'update');
 
   return {
     dataId,
     status: updateResponse.status,
-    candidateCount: records.length,
-    matchedCount: matchingRecords.length,
+    galleryLink,
     syncedFields: Object.keys(updateData),
   };
 };
 
-const syncDownloadLink = (options) => syncTemplateFields(options);
-
 module.exports = {
-  syncDownloadLink,
-  syncTemplateFields,
+  syncTemplateToJianDaoYun,
 };
