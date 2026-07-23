@@ -50,7 +50,8 @@ Language values are mapped as `en-us → English`, `zh-tw → 繁体`, and
 
 For the unique match, Strapi uses its `_id` as `data_id` and updates both the
 Template `download_link` and `https://gallery.fanruan.com/{slug}` in one API
-request.
+request. After a successful first publish it also writes `publish_date`; later
+edits and republishes preserve the existing date.
 Successful, skipped, and failed synchronization attempts are written to the
 Strapi server log with the `zh_template_id` and relevant JianDaoYun details.
 
@@ -71,6 +72,7 @@ JIANDAOYUN_ZH_TEMPLATE_ID_FIELD=_widget_1773888010278
 JIANDAOYUN_NEW_FILE_LINK_FIELD=_widget_1770019599166
 JIANDAOYUN_PUBLISHED_LINK_FIELD=_widget_1779852152157
 JIANDAOYUN_LANGUAGE_FIELD=_widget_1770003814387
+JIANDAOYUN_PUBLISH_DATE_FIELD=publish_date
 TEMPLATE_PUBLIC_BASE_URL=https://gallery.fanruan.com
 ```
 

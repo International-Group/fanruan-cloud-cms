@@ -18,6 +18,7 @@ const ENV_KEYS = [
   'JIANDAOYUN_ZH_TEMPLATE_ID_FIELD',
   'JIANDAOYUN_NEW_FILE_LINK_FIELD',
   'JIANDAOYUN_PUBLISHED_LINK_FIELD',
+  'JIANDAOYUN_PUBLISH_DATE_FIELD',
   'JIANDAOYUN_LANGUAGE_FIELD',
   'TEMPLATE_PUBLIC_BASE_URL',
 ];
@@ -147,6 +148,71 @@ test('maps each supported Strapi language to JianDaoYun text', async () => {
   }
 });
 
+test('sets publish_date on the first publish', async () => {
+  const requests = [];
+  const publishDate = '2026-07-17T00:00:00.000Z';
+
+  const result = await syncTemplateToJianDaoYun({
+    zhTemplateId: '20001696',
+    language: 'en-us',
+    downloadLink: '#',
+    slug: 'abc123',
+    publishDate,
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return url.endsWith('/list')
+        ? { ok: true, json: async () => ({ data: [matchingRecord()] }) }
+        : { ok: true, status: 200 };
+    },
+  });
+
+  assert.deepEqual(JSON.parse(requests[0].options.body).fields, [
+    '_widget_1773888010278',
+    '_widget_1770003814387',
+    'publish_date',
+  ]);
+  assert.deepEqual(
+    JSON.parse(requests[1].options.body).data.publish_date,
+    { value: publishDate }
+  );
+  assert.deepEqual(result.syncedFields, [
+    '_widget_1770019599166',
+    '_widget_1779852152157',
+    'publish_date',
+  ]);
+});
+
+test('preserves publish_date when a template is published again', async () => {
+  const requests = [];
+
+  await syncTemplateToJianDaoYun({
+    zhTemplateId: '20001696',
+    language: 'en-us',
+    downloadLink: '#',
+    slug: 'abc123',
+    publishDate: '2026-07-23T00:00:00.000Z',
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return url.endsWith('/list')
+        ? {
+            ok: true,
+            json: async () => ({
+              data: [
+                {
+                  ...matchingRecord(),
+                  publish_date: '2026-07-17T00:00:00.000Z',
+                },
+              ],
+            }),
+          }
+        : { ok: true, status: 200 };
+    },
+  });
+
+  const updateData = JSON.parse(requests[1].options.body).data;
+  assert.equal(Object.hasOwn(updateData, 'publish_date'), false);
+});
+
 test('rejects a lookup that returns no record', async () => {
   await assert.rejects(
     syncTemplateToJianDaoYun({
@@ -225,16 +291,20 @@ test('rejects a mismatched record instead of updating it', async () => {
   assert.equal(callCount, 1);
 });
 
-test('syncs after save and publish but ignores a viewed-only update', async () => {
+test('only adds publish_date for a publish update', async () => {
   const originalFetch = global.fetch;
   const originalStrapi = global.strapi;
   let callCount = 0;
+  const updateData = [];
 
-  global.fetch = async (url) => {
+  global.fetch = async (url, options) => {
     callCount += 1;
-    return url.endsWith('/list')
-      ? { ok: true, json: async () => ({ data: [matchingRecord()] }) }
-      : { ok: true, status: 200 };
+    if (url.endsWith('/list')) {
+      return { ok: true, json: async () => ({ data: [matchingRecord()] }) };
+    }
+
+    updateData.push(JSON.parse(options.body).data);
+    return { ok: true, status: 200 };
   };
   global.strapi = {
     log: {
@@ -261,6 +331,14 @@ test('syncs after save and publish but ignores a viewed-only update', async () =
       result: { ...result, publishedAt: '2026-07-17T00:00:00.000Z' },
     });
     await templateLifecycles.afterUpdate({
+      params: { data: { name: 'Edited after publish' } },
+      result: {
+        ...result,
+        name: 'Edited after publish',
+        publishedAt: '2026-07-17T00:00:00.000Z',
+      },
+    });
+    await templateLifecycles.afterUpdate({
       params: { data: { viewed: '2' } },
       result: { ...result, viewed: '2' },
     });
@@ -269,5 +347,10 @@ test('syncs after save and publish but ignores a viewed-only update', async () =
     global.strapi = originalStrapi;
   }
 
-  assert.equal(callCount, 4);
+  assert.equal(callCount, 6);
+  assert.equal(Object.hasOwn(updateData[0], 'publish_date'), false);
+  assert.deepEqual(updateData[1].publish_date, {
+    value: '2026-07-17T00:00:00.000Z',
+  });
+  assert.equal(Object.hasOwn(updateData[2], 'publish_date'), false);
 });
