@@ -11,6 +11,7 @@ const DEFAULT_FIELDS = {
   language: '_widget_1770003814387',
   downloadLink: '_widget_1770019599166',
   galleryLink: '_widget_1779852152157',
+  publishDate: 'publish_date',
 };
 
 const LANGUAGE_VALUES = {
@@ -43,6 +44,8 @@ const getConfig = () => ({
     galleryLink:
       process.env.JIANDAOYUN_PUBLISHED_LINK_FIELD ||
       DEFAULT_FIELDS.galleryLink,
+    publishDate:
+      process.env.JIANDAOYUN_PUBLISH_DATE_FIELD || DEFAULT_FIELDS.publishDate,
   },
 });
 
@@ -107,7 +110,8 @@ const assertResponseOk = async (response, operation) => {
 
 /**
  * Query one JianDaoYun record by zh_template_id + language, then update both
- * its download link and public gallery link.
+ * its download link and public gallery link. On a publish, also set the
+ * publish date when that field is still empty, preserving the first publish.
  *
  * Filter shape follows https://hc.jiandaoyun.com/open/14220. zh_template_id is
  * a number field in JianDaoYun; language is a text-like option field.
@@ -117,6 +121,7 @@ const syncTemplateToJianDaoYun = async ({
   language,
   downloadLink,
   slug,
+  publishDate,
   fetchImpl = fetch,
   logger,
 }) => {
@@ -149,10 +154,15 @@ const syncTemplateToJianDaoYun = async ({
     'zh_template_id'
   );
 
+  const lookupFields = [config.fields.zhTemplateId, config.fields.language];
+  if (publishDate) {
+    lookupFields.push(config.fields.publishDate);
+  }
+
   const lookupBody = {
     app_id: config.appId,
     entry_id: config.entryId,
-    fields: [config.fields.zhTemplateId, config.fields.language],
+    fields: lookupFields,
     filter: {
       rel: 'and',
       cond: [
@@ -230,6 +240,10 @@ const syncTemplateToJianDaoYun = async ({
     [config.fields.downloadLink]: { value: downloadLink },
     [config.fields.galleryLink]: { value: galleryLink },
   };
+
+  if (publishDate && !normalizeValue(record[config.fields.publishDate])) {
+    updateData[config.fields.publishDate] = { value: publishDate };
+  }
 
   const updateBody = {
     app_id: config.appId,

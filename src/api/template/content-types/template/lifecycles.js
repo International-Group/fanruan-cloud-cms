@@ -4,6 +4,22 @@ const {
 
 const IGNORED_UPDATE_FIELDS = new Set(['viewed', 'updatedAt']);
 
+const getPublishDate = (event) => {
+  const changedData = event.params?.data || {};
+
+  // Only a publish mutation should be allowed to set the first-publish date.
+  // Reading publishedAt from event.result alone would also match later edits
+  // to an already-published Template.
+  if (
+    !Object.prototype.hasOwnProperty.call(changedData, 'publishedAt') ||
+    !changedData.publishedAt
+  ) {
+    return undefined;
+  }
+
+  return event.result?.publishedAt || changedData.publishedAt;
+};
+
 const syncTemplate = async (event) => {
   const data = event.result || event.params.data;
   const {
@@ -26,6 +42,7 @@ const syncTemplate = async (event) => {
       language,
       downloadLink,
       slug,
+      publishDate: getPublishDate(event),
       logger: strapi.log,
     });
 
