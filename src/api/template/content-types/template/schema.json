@@ -165,7 +165,7 @@
       "multiple": false
     },
     "zh_template_id": {
-      "type": "uid",
+      "type": "string",
       "conditions": {
         "visible": {
           "==": [
