@@ -1,8 +1,56 @@
 const {
   syncTemplateToJianDaoYun,
 } = require('../../utils/jiandaoyun');
+const { errors } = require('@strapi/utils');
 
 const IGNORED_UPDATE_FIELDS = new Set(['viewed', 'updatedAt']);
+const TEMPLATE_UID = 'api::template.template';
+
+const validateTemplateIdentity = async (event) => {
+  const changedData = event.params?.data || {};
+  let currentData = {};
+
+  // Updates may only contain one side of the compound identity. Load the
+  // persisted values so the pair is always validated as a whole.
+  if (event.action === 'beforeUpdate') {
+    currentData =
+      (await strapi.db.query(TEMPLATE_UID).findOne({
+        where: event.params?.where,
+        select: ['id', 'zh_template_id', 'language', 'publishedAt'],
+      })) || {};
+  }
+
+  const data = { ...currentData, ...changedData };
+  const zhTemplateId = data.zh_template_id;
+  const language = data.language;
+
+  // Match Strapi's unique-field behavior for draft-and-publish content:
+  // drafts can be saved, while the uniqueness rule is enforced on publish.
+  if (!data.publishedAt || !zhTemplateId || !language) {
+    return;
+  }
+
+  const where = {
+    zh_template_id: zhTemplateId,
+    language,
+    publishedAt: { $notNull: true },
+  };
+
+  if (currentData.id) {
+    where.id = { $ne: currentData.id };
+  }
+
+  const duplicate = await strapi.db.query(TEMPLATE_UID).findOne({
+    where,
+    select: ['id'],
+  });
+
+  if (duplicate) {
+    throw new errors.ValidationError(
+      'The combination of zh_template_id and language must be unique.'
+    );
+  }
+};
 
 const getPublishDate = (event) => {
   const changedData = event.params?.data || {};
@@ -62,6 +110,8 @@ module.exports = {
   async beforeCreate(event) {
     const { data } = event.params;
 
+    await validateTemplateIdentity(event);
+
     const generateSlug = (length = 12) => {
       const chars =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -75,6 +125,10 @@ module.exports = {
     if (!data.slug) {
       data.slug = generateSlug();
     }
+  },
+
+  async beforeUpdate(event) {
+    await validateTemplateIdentity(event);
   },
 
   async afterCreate(event) {
