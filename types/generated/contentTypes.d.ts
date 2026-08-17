@@ -821,7 +821,13 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
         };
       }>;
     industry: Schema.Attribute.Enumeration<
-      ['Manufacturing', 'Financial Services', 'Public Sector', 'Retail']
+      [
+        'Manufacturing',
+        'Financial Services',
+        'Public Sector',
+        'Retail',
+        'General',
+      ]
     > &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
