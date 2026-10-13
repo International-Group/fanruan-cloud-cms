@@ -76,6 +76,30 @@ JIANDAOYUN_PUBLISH_DATE_FIELD=publish_date
 TEMPLATE_PUBLIC_BASE_URL=https://gallery.fanruan.com
 ```
 
+## Template slug redirects
+
+Template Document Service mutations reserve every published slug in the
+`Template Slug History` collection, mapped to the stable Template `documentId`.
+Saving a draft does not activate a redirect. Publishing a renamed template
+also captures its previous published slug, including templates that existed
+before this feature was deployed. Unpublishing preserves history for later
+republishing. Other templates cannot reuse reserved slugs.
+
+`GET /api/templates/resolve-slug/:slug` returns `{ "data": { "slug": "current-slug" } }`
+for a current or historical slug belonging to a published, public template.
+Unknown, deleted, private, delisted, pending, or unpublished templates return
+404. The optional `language` query parameter limits the target language.
+The route is public and exposes only the current slug; history has no generated
+Content API routes. Historical entries can be added through the admin collection
+using `slug` and `templateDocumentId` when recovering earlier URLs from backups.
+
+Deploy/restart the CMS first so Strapi creates the history collection, then
+deploy the Community frontend. Its Next.js proxy requests this endpoint before
+rendering and returns HTTP 301 to the latest slug, retaining the route prefix
+and all query parameters. The frontend uses `NEXT_PUBLIC_CMS_API_URL` and needs
+no additional API token permissions. CMS lookup failures fall through to the
+existing page handling. Slugs lost before deployment must be supplied manually.
+
 ## 📚 Learn more
 
 - [Resource center](https://strapi.io/resource-center) - Strapi resource center.

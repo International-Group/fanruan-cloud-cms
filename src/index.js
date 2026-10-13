@@ -1,6 +1,7 @@
 'use strict';
 const bootstrap = require("./bootstrap");
 const userBehaviorQueue = require('./api/user-behavior/utils/user-behavior-queue');
+const { createSlugHistoryMiddleware } = require('./api/template/utils/slug-history');
 
 module.exports = {
   /**
@@ -9,7 +10,9 @@ module.exports = {
    *
    * This gives you an opportunity to extend code.
    */
-  register(/*{ strapi }*/) {},
+  register({ strapi }) {
+    strapi.documents.use(createSlugHistoryMiddleware(strapi));
+  },
 
   /**
    * An asynchronous bootstrap function that runs before

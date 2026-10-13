@@ -1,0 +1,15 @@
+{
+  "kind": "collectionType",
+  "collectionName": "template_slugs",
+  "info": {
+    "singularName": "template-slug",
+    "pluralName": "template-slugs",
+    "displayName": "Template Slug History"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "slug": { "type": "string", "required": true, "unique": true },
+    "templateDocumentId": { "type": "string", "required": true }
+  }
+}
