@@ -100,6 +100,36 @@ and all query parameters. The frontend uses `NEXT_PUBLIC_CMS_API_URL` and needs
 no additional API token permissions. CMS lookup failures fall through to the
 existing page handling. Slugs lost before deployment must be supplied manually.
 
+## Template Preview
+
+Configure the CMS server environment:
+
+```text
+CLIENT_URL=https://gallery.fanruan.com
+PREVIEW_SECRET=<random secret shared with the frontend server>
+PREVIEW_TEMPLATE_VIEW=gallery
+```
+
+Preview is enabled only when both `CLIENT_URL` and `PREVIEW_SECRET` are set.
+For local development use `CLIENT_URL=http://localhost:3000`. The optional
+`PREVIEW_TEMPLATE_VIEW` can be `gallery`, `bi`, or `fvs`.
+Restart the CMS after configuring these variables.
+
+In Strapi Settings → API Tokens, create a dedicated Read-only token (or a custom
+token with Template `findOne` and the read permissions needed for media).
+Configure the Community frontend server with the same `PREVIEW_SECRET`,
+`CMS_PREVIEW_TOKEN=<that token>`, and `CMS_API_URL=<this CMS origin>`.
+The token and secret must never use a `NEXT_PUBLIC_` prefix.
+
+Save a Template draft with a slug, then click Preview to view it in the frontend.
+The preview handler identifies documents by `documentId`, so newly created
+drafts and renamed slugs work before publishing. Draft Content API requests
+require both valid API-token authentication and an `X-Template-Preview-Secret`
+header matching `PREVIEW_SECRET`; ordinary published reads remain unchanged.
+The frontend disables view/share/download effects and GTM during preview,
+provides an Exit preview link, and expires the signed preview session after
+one hour. Preview has no effect on publishing or slug history.
+
 ## 📚 Learn more
 
 - [Resource center](https://strapi.io/resource-center) - Strapi resource center.
