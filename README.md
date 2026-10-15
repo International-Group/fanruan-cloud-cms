@@ -1,3 +1,5 @@
+生产发布和回滚请参阅 [自动化部署说明](deploy/README.md)。
+
 # 🚀 Getting started with Strapi
 
 Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/dev-docs/cli) (CLI) which lets you scaffold and manage your project in seconds.

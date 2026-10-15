@@ -129,3 +129,8 @@ dist
 build
 .strapi-updater.json
 .strapi-cloud.json
+# Deployment reports and operator-only runtime files
+runtime/
+deployment-result.json
+rollback-result.json
+__pycache__/
