@@ -1,0 +1,25 @@
+name: CMS quality
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fanruan-cloud-cms-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Test deployment failure recovery and health handlers
+        run: |
+          python3 -m unittest discover -s deploy/tests
+          node --test tests/deployment-health.test.js
+      - name: Build and inspect the credential-free production image
+        run: |
+          docker build --target runtime --build-arg RELEASE_ID="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --build-arg SOURCE_REVISION="$GITHUB_SHA" -t cms-ci .
+          docker run --rm --read-only --tmpfs /tmp --entrypoint node cms-ci deploy/runtime/preflight.cjs --image-only

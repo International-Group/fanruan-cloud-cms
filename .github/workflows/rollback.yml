@@ -1,0 +1,35 @@
+name: CMS rollback
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Current release ID whose recorded previous version should be restored
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: fanruan-cloud-cms-production
+  cancel-in-progress: false
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - env:
+          DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          ROLLBACK_RELEASE: ${{ inputs.release }}
+        run: python3 deploy/scripts/rollback.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: rollback-${{ github.run_id }}-${{ github.run_attempt }}
+          path: rollback-result.json
+          if-no-files-found: ignore
+          retention-days: 90

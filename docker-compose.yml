@@ -1,15 +1,22 @@
-version: "3"
-
+# Production releases are managed by GitHub Actions and deploy/server/controller.py.
+# This file is an explicit-image emergency/local runner; it never builds source.
 services:
   strapi:
-    build: .
-    container_name: fanruan_cms
-    restart: always
-    network_mode: "host"
+    image: ${CMS_IMAGE:?Set the verified GHCR image digest}
+    restart: unless-stopped
+    network_mode: host
     env_file:
-      - .env
+      - ${CMS_ENV_FILE:?Set the runtime environment file}
+    environment:
+      NODE_ENV: production
+      PORT: "1337"
+      NODE_PORT: "1337"
+      HOST: 127.0.0.1
+      APP_HOST: 127.0.0.1
     volumes:
-      - ./config:/app/config
-      - ./src:/app/src
-      - ./public:/app/public
-      - ./.env:/app/.env
+      - ${CMS_UPLOADS:?Set the persistent uploads directory}:/app/public/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"

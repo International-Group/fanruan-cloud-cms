@@ -1,0 +1,12 @@
+{
+  "app": "fanruan-cloud-cms",
+  "domain": "intl-cms.fanruan.com",
+  "live_port": 1337,
+  "legacy": "fanruan_cms",
+  "repository": "ghcr.io/international-group/fanruan-cloud-cms",
+  "github": "International-Group/fanruan-cloud-cms",
+  "host": "3.0.129.184",
+  "user": "ubuntu",
+  "runtime": "/opt/fanruan/fanruan-cloud-cms/runtime",
+  "uploads": "/home/ubuntu/fanruan-cloud-cms/public/uploads"
+}
