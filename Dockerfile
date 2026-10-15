@@ -8,7 +8,7 @@ ENV NODE_ENV=production STRAPI_TELEMETRY_DISABLED=true
 ENV PUBLIC_URL=https://intl-cms.fanruan.com
 ENV PORT=1337 NODE_PORT=1337
 COPY . .
-RUN npm run build
+RUN node --test tests/*.test.js && npm run build
 ARG RELEASE_ID
 ARG SOURCE_REVISION
 RUN RELEASE_ID="$RELEASE_ID" SOURCE_REVISION="$SOURCE_REVISION" node -e 'const fs=require("fs");if(!/^[a-f0-9]{40}-[0-9]+-[0-9]+$/.test(process.env.RELEASE_ID)||process.env.SOURCE_REVISION!==process.env.RELEASE_ID.slice(0,40))throw Error("Invalid release");fs.writeFileSync(".release.json",JSON.stringify({releaseId:process.env.RELEASE_ID,revision:process.env.SOURCE_REVISION}))'
