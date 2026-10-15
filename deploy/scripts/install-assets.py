@@ -121,7 +121,7 @@ def main():
     args = parser.parse_args()
     config = json.loads((ROOT / 'deploy/project.json').read_text())
     payload = dict(config=config, controller=(ROOT / 'deploy/server/controller.py').read_text())
-    source = Path(__file__).read_text().split("if __name__ == '__main__':")[0]
+    source = Path(__file__).read_text().rsplit("if __name__ == '__main__':", 1)[0]
     source += '\ninstall(' + repr(payload) + ')\n'
     result = subprocess.run(['ssh', '-i', str(args.operator_key), '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes',
                              '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=15',
