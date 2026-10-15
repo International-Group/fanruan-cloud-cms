@@ -2,6 +2,7 @@
 """Restricted, journaled single-instance CMS releases. Production never builds code."""
 import fcntl
 import gzip
+import hashlib
 import html
 import json
 import os
@@ -151,7 +152,10 @@ class Controller:
             url = urljoin(origin + '/admin/', html.unescape(asset))
             if urlparse(url).netloc != self.c['domain']:
                 raise DeploymentError('Unexpected external admin bundle')
-            self.run(args + ['--head', url], timeout=25)
+            headers = self.run(args + ['--head', url], timeout=25).decode().lower()
+            expected = 'text/css' if urlparse(url).path.endswith('.css') else 'javascript'
+            if not re.search(r'^content-type:.*' + re.escape(expected), headers, re.M):
+                raise DeploymentError('Admin asset returned an unexpected content type')
         init = json.loads(self.run(args + [origin + '/admin/init']))
         if not init.get('data', {}).get('hasAdmin'):
             raise DeploymentError('Existing CMS administrator is missing')
@@ -198,11 +202,56 @@ class Controller:
         candidate = dict(releaseId=release, image=image, container=self.c['app'] + '-' + slot,
                          port=self.c['live_port'], basedOn=current['releaseId'])
         report = self.preflight(candidate)
+        self.publish_assets(candidate)
         candidate.update(schemaHash=report['schemaHash'], strapiVersion=report['strapiVersion'])
         save(self.pending_file, candidate)
         save(self.root / 'releases' / (release + '.json'), candidate)
         self.log('staged ' + release + ' without starting Strapi')
         return candidate
+
+    def copy_assets(self, source):
+        destination = Path(self.c.get('assets', '/var/lib/' + self.c['app'] + '/assets/admin'))
+        destination.mkdir(parents=True, exist_ok=True, mode=0o755)
+        for parent in [destination, destination.parent, destination.parent.parent]:
+            parent.chmod(0o755)
+        with open(self.root / 'assets.lock', 'w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            for file in Path(source).rglob('*'):
+                if file.is_symlink():
+                    raise DeploymentError('Admin assets cannot contain symlinks')
+                if not file.is_file() or file.suffix.lower() not in ['.js', '.css', '.woff', '.woff2', '.ttf']:
+                    continue
+                target = destination / file.relative_to(source)
+                target.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+                for parent in [target.parent, *target.parent.parents]:
+                    if parent == destination.parent:
+                        break
+                    parent.chmod(0o755)
+                if target.exists():
+                    if hashlib.sha256(file.read_bytes()).digest() != hashlib.sha256(target.read_bytes()).digest():
+                        raise DeploymentError('Refusing to overwrite a published admin asset')
+                    continue
+                with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as output:
+                    temporary = Path(output.name)
+                    try:
+                        output.write(file.read_bytes())
+                        output.flush()
+                        os.fsync(output.fileno())
+                        temporary.chmod(0o644)
+                        os.replace(temporary, target)
+                    finally:
+                        temporary.unlink(missing_ok=True)
+
+    def publish_assets(self, record):
+        # docker create/cp never starts Strapi and needs no production credentials.
+        container = self.run(['docker', 'create', '--label', 'com.fanruan.deployment=' + self.c['app'], record['image']]).decode().strip()
+        try:
+            with tempfile.TemporaryDirectory(dir=self.root) as directory:
+                source = Path(directory) / 'build'
+                self.run(['docker', 'cp', container + ':/app/build', str(source)])
+                self.copy_assets(source)
+        finally:
+            self.run(['docker', 'rm', container])
 
     def database_backup(self, record):
         env = dict(line.split('=', 1) for line in (self.root / 'app.env').read_text().splitlines() if line and not line.startswith('#'))

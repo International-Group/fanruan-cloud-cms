@@ -50,3 +50,9 @@ python3 -m unittest discover -s deploy/tests
 ```
 
 测试涵盖预检/备份失败、候选启动失败、公网或管理页面失败、失败回滚、连接中断、冷启动回滚、初次模型漂移、上传挂载和 SSH 命令限制。CI 同时验证无生产凭据构建及运行镜像中的管理页面。
+
+## 管理页面静态资源
+
+发布前从镜像提取已构建的 JS、CSS 和字体，以内容校验方式追加到 `/var/lib/fanruan-cloud-cms/assets/admin`，不运行 Strapi、不覆盖已有文件。Nginx 优先提供这些资源，缺失时转发给当前 CMS，保留已打开页面所需的旧 chunk；管理入口 HTML、认证接口及内容 API 仍由当前 CMS 响应。发布检查同时核对 JS/CSS 的 Content-Type，拒绝将 HTML 回退页误判为成功。
+
+首次安装后执行 `python3 deploy/scripts/install-assets.py --operator-key ~/.ssh/id_rsa`，为旧版资源建档并安装 Nginx 静态路由；此操作不重启 CMS。该操作在部署锁内更新经过审阅的控制器和配置，并在 Nginx 检查失败时恢复原配置；不重新初始化运行状态。

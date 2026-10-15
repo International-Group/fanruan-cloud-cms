@@ -233,5 +233,55 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(any(command.startswith('activate') for command in calls))
 
 
+
+class AssetTests(unittest.TestCase):
+    def test_retained_assets_are_append_only_and_reject_conflicts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, assets = root / 'source', root / 'public/assets/admin'
+            source.mkdir()
+            (source / 'old.js').write_text('original')
+            (source / 'index.html').write_text('must stay dynamic')
+            real = controller.Controller(dict(runtime=str(root), app='test', assets=str(assets)))
+            real.copy_assets(source)
+            (source / 'old.js').unlink()
+            (source / 'new.js').write_text('new version')
+            real.copy_assets(source)
+            self.assertEqual((assets / 'old.js').read_text(), 'original')
+            self.assertTrue((assets / 'new.js').exists())
+            self.assertFalse((assets / 'index.html').exists())
+            (source / 'old.js').write_text('collision')
+            with self.assertRaises(controller.DeploymentError): real.copy_assets(source)
+            self.assertEqual((assets / 'old.js').read_text(), 'original')
+
+    def test_symlinks_cannot_publish_external_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            source.mkdir()
+            (root / 'private').write_text('secret')
+            (source / 'leak.js').symlink_to(root / 'private')
+            real = controller.Controller(dict(runtime=str(root), app='test', assets=str(root / 'public/assets/admin')))
+            with self.assertRaises(controller.DeploymentError): real.copy_assets(source)
+            self.assertFalse((root / 'public/assets/admin/leak.js').exists())
+
+    def test_admin_html_fallback_is_not_a_successful_javascript_response(self):
+        real = controller.Controller(dict(runtime='/tmp', app='test', domain='cms.example.com'))
+        with patch.object(real, 'run', side_effect=[b'<html><script src="/admin/bundle.js"></script></html>', b'HTTP/2 200\r\ncontent-type: text/html\r\n']):
+            with self.assertRaises(controller.DeploymentError): real.page_check({})
+
+    def test_nginx_preserves_api_upload_and_webhook_configuration_and_is_idempotent(self):
+        installer = module('assets', 'deploy/scripts/install-assets.py')
+        config = dict(app='test', domain='cms.example.com', assets='/var/lib/test/assets/admin', live_port=1337)
+        original = 'server { server_name cms.example.com;\n location / { proxy_pass http://127.0.0.1:1337; }\n location = /webhook { return 410; }\n client_max_body_size 2G;\n}\n'
+        result = installer.nginx_config(original, config)
+        self.assertIn('location = /webhook { return 410; }', result)
+        self.assertIn('client_max_body_size 2G;', result)
+        self.assertIn('root /var/lib/test/assets;', result)
+        self.assertIn('try_files $uri @test_admin_asset;', result)
+        self.assertEqual(installer.nginx_config(result, config), result)
+        with self.assertRaises(RuntimeError): installer.nginx_config(original.replace('location / {', 'location /admin {'), config)
+
+
 if __name__ == '__main__':
     unittest.main()
