@@ -8,5 +8,7 @@
   "host": "3.0.129.184",
   "user": "ubuntu",
   "runtime": "/opt/fanruan/fanruan-cloud-cms/runtime",
-  "uploads": "/home/ubuntu/fanruan-cloud-cms/public/uploads"
+  "uploads": "/home/ubuntu/fanruan-cloud-cms/public/uploads",
+  "assets": "/var/lib/fanruan-cloud-cms/assets/admin",
+  "site": "/etc/nginx/sites-enabled/intl-cms"
 }
