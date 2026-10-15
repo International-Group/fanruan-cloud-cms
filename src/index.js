@@ -1,5 +1,4 @@
 'use strict';
-const bootstrap = require("./bootstrap");
 const userBehaviorQueue = require('./api/user-behavior/utils/user-behavior-queue');
 const { createSlugHistoryMiddleware } = require('./api/template/utils/slug-history');
 
@@ -22,7 +21,7 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
-    await bootstrap();
+    // Example content is initialized explicitly with scripts/seed.js, never on server startup.
     userBehaviorQueue.start(strapi);
   },
 
