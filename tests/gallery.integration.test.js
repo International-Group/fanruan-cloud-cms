@@ -87,6 +87,17 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   };
   await upload('cover', Buffer.from('<script>alert(1)</script>'), 'fake.png', 422);
   s = await upload('cover', png, 'cover.png');
+  const coverRevision = s.revision;
+  // A response lost after an upload committed must be safely replayable after
+  // another metadata save, returning the latest revision without duplicating files.
+  s = await call(`/gallery/submissions/${s.id}`, { method: 'PATCH', body: { ...draft, revision: s.revision } });
+  const savedRevision = s.revision;
+  s = await upload('cover', png, 'cover.png', 200, `upload-cover-${coverRevision - 1}`);
+  assert.equal(s.revision, savedRevision);
+  assert.equal(s.assets.length, 1);
+  const replayedCreate = await call('/gallery/submissions', { method: 'POST', body: draft, key: 'create-1', status: 201 });
+  assert.equal(replayedCreate.revision, savedRevision);
+  assert.equal(replayedCreate.assets.length, 1);
   const cover = s.assets[0];
   const privatePath = new URL(cover.url);
   assert.equal((await fetch(`${origin}${privatePath.pathname}`)).status, 404);
@@ -94,24 +105,29 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   assert.equal((await fetch(cover.url.replace(/signature=[^&]+/, `signature=${'0'.repeat(64)}`))).status, 404);
   await upload('template', Buffer.from('MZfake executable'), 'fake.mbi', 422);
   await upload('template', Buffer.from([80, 75, 3, 4, 0, 0]), 'broken.mbi', 422);
+  assert.equal((await call(`/gallery/submissions/${s.id}`)).revision, s.revision);
   s = await upload('template', Buffer.from('UEsDBBQAAAAIAJaNYl3S3yBKEQAAAA8AAAAOAAAAZGFzaGJvYXJkLmpzb26rVspLzE1VslIqSS0uUaoFAFBLAQIUAxQAAAAIAJaNYl3S3yBKEQAAAA8AAAAOAAAAAAAAAAAAAACAAQAAAABkYXNoYm9hcmQuanNvblBLBQYAAAAAAQABADwAAAA9AAAAAAA=', 'base64'), 'sample.mbi');
   let pending = await call(`/gallery/submissions/${s.id}/submit`, { method: 'POST', body: { revision: s.revision }, key: 'submit-1' });
   await call(`/gallery/submissions/${s.id}`, { method: 'PATCH', body: { ...draft, revision: pending.revision }, status: 409 });
   await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'changes_requested', reason: '' }, key: 'no-reason', status: 422 });
   s = await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'changes_requested', reason: 'Improve description' }, key: 'changes' });
-  s = await call(`/gallery/submissions/${s.id}`, { method: 'PATCH', body: { ...draft, revision: s.revision, description: 'Improved description' } });
+  s = await call(`/gallery/submissions/${s.id}`, { method: 'PATCH', body: { ...draft, revision: s.revision, description: '改进后的简介\n第二行 {不要执行}' } });
   pending = await call(`/gallery/submissions/${s.id}/submit`, { method: 'POST', body: { revision: s.revision }, key: 'submit-2' });
+  for (const renderUrl of ['', 'javascript:alert(1)', `${origin}/api/gallery/works/fake/preview`, 'https://cms.example/gallery/works/fake/preview', 'https://files.example/cover.png']) {
+    await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'approved', reason: '', renderUrl }, key: 'invalid-render-link', status: 422 });
+  }
+  assert.equal((await call(`/gallery/submissions/${s.id}`)).reviewStatus, 'pending');
   let failPublish = true;
   app.documents.use(async (context, next) => {
     const result = await next();
     if (failPublish && context.uid === 'api::template.template' && context.action === 'create') throw Object.assign(new Error('Simulated publication failure'), { status: 502, expose: true });
     return result;
   });
-  await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'approved', reason: '' }, key: 'approve', status: 502 });
+  await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'approved', reason: '', renderUrl: 'https://render.example.com/view/test-dashboard' }, key: 'approve', status: 502 });
   assert.equal((await call(`/gallery/submissions/${s.id}`)).revision, pending.revision);
   assert.equal((await call('/gallery/creators/test-creator', { user: null })).works.length, 0);
   failPublish = false;
-  const approved = await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'approved', reason: '' }, key: 'approve' });
+  let approved = await call(`/admin/gallery/submissions/${s.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: pending.revision, action: 'approved', reason: '', renderUrl: 'https://render.example.com/view/test-dashboard' }, key: 'approve' });
   assert.equal(approved.reviewStatus, 'approved'); assert.equal(approved.publicationStatus, 'published');
   assert.equal((await fetch(`${origin}${privatePath.pathname}`)).status, 200);
   const portfolio = await call('/gallery/creators/test-creator', { user: null });
@@ -119,24 +135,59 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   for (const field of ['goals', 'country', 'contactUrl', 'revision', 'owner']) assert.equal(field in portfolio.profile, false, field);
   const originalDocument = portfolio.works[0].documentId;
   const publishedDocument = await app.documents('api::template.template').findOne({ documentId: originalDocument, status: 'published' });
-  assert.equal(publishedDocument.description, Array.from('Improved description').map(c => `&#${c.codePointAt(0)};`).join(''));
-  const { mdxText } = require('../src/api/gallery/utils/validation');
-  assert.ok(!/[<>{}`]/.test(mdxText('export const x = {secret}\n<img onerror="run()">')));
+  assert.equal(publishedDocument.description, '改进后的简介\n第二行 {不要执行}');
+  assert.equal(publishedDocument.source, 'Competition');
+  assert.equal(publishedDocument.template_link, 'https://render.example.com/view/test-dashboard');
+  await call(`/admin/gallery/works/${approved.workId}/render-link`, { method: 'PATCH', body: { revision: approved.revision, submissionId: approved.id, renderUrl: 'https://render.example.com/view/replaced' }, status: 403 });
+  await call(`/admin/gallery/works/${approved.workId}/render-link`, { user: 'reviewer', method: 'PATCH', body: { revision: approved.revision, submissionId: 'historical-version', renderUrl: 'https://render.example.com/view/replaced' }, status: 409 });
+  const { encodeLegacyDescription, repairGalleryTemplateMetadata } = require('../scripts/repair-gallery-template-metadata');
+  // Both published and draft rows used the old entity encoding. A subsequent
+  // manual draft edit must survive while the published original is recovered.
+  await app.documents('api::template.template').update({ documentId: originalDocument, data: { source: 'Translation', description: encodeLegacyDescription(publishedDocument.description) }, status: 'published' });
+  await app.documents('api::template.template').update({ documentId: originalDocument, data: { description: '人工修改的草稿' } });
+  const dryRun = await repairGalleryTemplateMetadata(app);
+  assert.equal(dryRun.applied, false);
+  assert.equal(dryRun.changedRecords, 2);
+  const repair = await repairGalleryTemplateMetadata(app, { apply: true });
+  assert.equal(repair.changedRecords, 2);
+  const repairedPublic = await app.documents('api::template.template').findOne({ documentId: originalDocument, status: 'published' });
+  const preservedDraft = await app.documents('api::template.template').findOne({ documentId: originalDocument, status: 'draft' });
+  assert.equal(repairedPublic.description, publishedDocument.description);
+  assert.equal(repairedPublic.source, 'Competition');
+  assert.equal(preservedDraft.description, '人工修改的草稿');
+  assert.equal(preservedDraft.source, 'Competition');
+  assert.equal((await repairGalleryTemplateMetadata(app)).changedRecords, 0);
+  // Simulate a legacy publication containing the old CMS image preview URL.
+  await app.documents('api::template.template').update({ documentId: originalDocument, data: { template_link: `${origin}/api/gallery/works/${approved.workId}/preview` }, status: 'published' });
+  assert.equal((await call(`/admin/gallery/submissions/${approved.id}`, { user: 'reviewer' })).renderUrl, '');
+  approved = await call(`/admin/gallery/works/${approved.workId}/render-link`, { user: 'reviewer', method: 'PATCH', body: { revision: approved.revision, submissionId: approved.id, renderUrl: 'https://render.example.com/view/repaired-legacy' } });
+  assert.equal(approved.publicationStatus, 'published');
+  assert.equal(approved.renderUrl, 'https://render.example.com/view/repaired-legacy');
   const revisionDraft = await call(`/gallery/works/${approved.workId}/revisions`, { method: 'POST' });
+  assert.equal(revisionDraft.renderUrl, '');
   assert.equal((await call(`/gallery/works/${approved.workId}/revisions`, { method: 'POST' })).id, revisionDraft.id);
   assert.equal((await call('/gallery/creators/test-creator', { user: null })).works.length, 1);
   let delisted = await call(`/admin/gallery/works/${approved.workId}/unpublish`, { user: 'reviewer', method: 'POST', body: { revision: approved.revision, reason: 'Checking' } });
   assert.equal(delisted.publicationStatus, 'delisted');
   assert.equal((await fetch(`${origin}${privatePath.pathname}`)).status, 404);
   assert.equal((await call('/gallery/creators/test-creator', { user: null })).works.length, 0);
+  await app.documents('api::template.template').update({ documentId: originalDocument, data: { template_link: `${origin}/api/gallery/works/${approved.workId}/preview` } });
+  await call(`/admin/gallery/works/${approved.workId}/republish`, { user: 'reviewer', method: 'POST', body: { revision: delisted.revision, reason: 'Must reject old screenshot preview' }, status: 422 });
+  assert.equal((await call(`/gallery/submissions/${approved.id}`)).revision, delisted.revision);
+  delisted = await call(`/admin/gallery/works/${approved.workId}/render-link`, { user: 'reviewer', method: 'PATCH', body: { revision: delisted.revision, submissionId: approved.id, renderUrl: 'https://render.example.com/view/corrected' } });
+  assert.equal(delisted.publicationStatus, 'delisted');
+  assert.equal((await call('/gallery/creators/test-creator', { user: null })).works.length, 0);
   const restored = await call(`/admin/gallery/works/${approved.workId}/republish`, { user: 'reviewer', method: 'POST', body: { revision: delisted.revision, reason: 'Verified' } });
   assert.equal(restored.publicationStatus, 'published');
+  assert.equal(restored.renderUrl, 'https://render.example.com/view/corrected');
   assert.equal((await call('/gallery/creators/test-creator', { user: null })).works[0].documentId, originalDocument);
   // Publishing a new version replaces the same Template document rather than duplicating works.
   let updated = await call(`/gallery/submissions/${revisionDraft.id}`, { method: 'PATCH', body: { ...draft, title: 'Version two', revision: revisionDraft.revision } });
   updated = await call(`/gallery/submissions/${updated.id}/submit`, { method: 'POST', body: { revision: updated.revision }, key: 'submit-version-two' });
-  await call(`/admin/gallery/submissions/${updated.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: updated.revision, action: 'approved', reason: '' }, key: 'approve-version-two' });
+  await call(`/admin/gallery/submissions/${updated.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: updated.revision, action: 'approved', reason: '', renderUrl: 'https://render.example.com/view/test-dashboard' }, key: 'approve-version-two' });
   const newest = await call('/gallery/creators/test-creator', { user: null });
+  const oldApproved = await call(`/admin/gallery/submissions/${approved.id}`, { user: 'reviewer' });
+  assert.equal(oldApproved.isCurrentVersion, false);
   assert.equal(newest.works.length, 1); assert.equal(newest.works[0].title, 'Version two'); assert.equal(newest.works[0].documentId, originalDocument);
   let disposable = await call('/gallery/submissions', { method: 'POST', body: draft, key: 'disposable', status: 201 });
   const race = await Promise.all([1, 2].map(i => fetch(`${origin}/api/gallery/submissions/${disposable.id}`, { method: 'PATCH', headers: { Authorization: 'Bearer creator', 'Content-Type': 'application/json' }, body: JSON.stringify({ ...draft, revision: disposable.revision, title: `Concurrent ${i}` }) })));

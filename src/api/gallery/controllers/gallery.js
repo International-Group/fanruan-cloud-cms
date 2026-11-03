@@ -37,6 +37,7 @@ module.exports = {
   withdraw: wrap((ctx, s) => s.withdraw(actor(ctx), ctx.params.id, body(ctx))),
   review: wrap((ctx, s) => s.review(actor(ctx), ctx.params.id, body(ctx), ctx.get('Idempotency-Key'))),
   newRevision: wrap((ctx, s) => s.newRevision(actor(ctx), ctx.params.id)),
+  updateRenderLink: wrap((ctx, s) => s.updateRenderLink(actor(ctx), ctx.params.id, body(ctx))),
   unpublish: wrap((ctx, s) => s.visibility(actor(ctx), ctx.params.id, body(ctx), false)),
   republish: wrap((ctx, s) => s.visibility(actor(ctx), ctx.params.id, body(ctx), true)),
   asset: wrap(async (ctx, s) => {

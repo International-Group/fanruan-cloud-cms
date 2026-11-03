@@ -34,11 +34,24 @@ module.exports = ({ strapi }) => {
   const withOperation = async (actor, scope, key, fingerprint, run) => {
     if (typeof key !== 'string' || !key.trim() || key.length > 200) v.fail(422, 'Idempotency-Key is required (max 200 characters)');
     const operationKey = createHash('sha256').update(JSON.stringify([actor.owner, scope, key])).digest('hex');
-    const digest = createHash('sha256').update(JSON.stringify(fingerprint)).digest('hex');
+    const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    const normalized = { ...fingerprint };
+    // Upload retries may follow a successful PATCH. The operation identity is the
+    // submission, file bytes, kind and key; revision still guards the first write.
+    if (scope.startsWith('upload:')) delete normalized.revision;
+    const digest = hash(normalized);
     const read = async () => {
       const previous = await q('operation').findOne({ where: { key: operationKey } });
       if (!previous) return null;
-      if (previous.fingerprint !== digest) v.fail(409, 'Idempotency-Key was already used with another request');
+      const legacyUpload = scope.startsWith('upload:') && previous.fingerprint === hash({ ...fingerprint, revision: String(previous.payload.revision - 1) });
+      if (previous.fingerprint !== digest && !legacyUpload) v.fail(409, 'Idempotency-Key was already used with another request');
+      if (previous.payload.key) {
+        // A replay must not roll the editor back to the revision cached before
+        // later uploads/edits. Do not repeat the mutation; return its current state.
+        const current = await q('submission').findOne({ where: { key: previous.payload.key } });
+        if (!current) v.fail(404, 'Submission not found');
+        return current;
+      }
       return previous.payload;
     };
     const previous = await read();
@@ -61,7 +74,13 @@ module.exports = ({ strapi }) => {
   const submissionDTO = async row => {
     const work = row.workKey ? await q('work').findOne({ where: { key: row.workKey } }) : null;
     const p = row.payload;
-    return { ...v.draft(p), id: row.key, revision: row.revision, reviewStatus: row.reviewStatus, updatedAt: row.updatedAt,
+    let renderUrl = p.renderUrl || '';
+    if (row.reviewStatus === 'approved' && work?.currentSubmission === row.key && work.templateDocumentId) {
+      const template = await strapi.documents('api::template.template').findOne({ documentId: work.templateDocumentId, status: work.publicationStatus === 'published' ? 'published' : 'draft' });
+      renderUrl = template?.template_link || '';
+    }
+    try { renderUrl = v.renderUrl(renderUrl); } catch { renderUrl = ''; }
+    return { renderUrl, ...(work ? { isCurrentVersion: work.currentSubmission === row.key } : {}), ...v.draft(p), id: row.key, revision: row.revision, reviewStatus: row.reviewStatus, updatedAt: row.updatedAt,
       assets: p.assets.map(a => ({ id: a.id, kind: a.kind, name: a.name, size: a.size, url: store.url(a.id) })),
       reviews: p.reviews.map(r => ({ id: r.id, action: r.action, reason: r.reason, reviewer: r.reviewer, createdAt: r.createdAt })),
       ...(work ? { workId: work.key, ...(work.templateDocumentId ? { publicSlug: p.publicSlug || work.key, publicationStatus: work.publicationStatus } : {}) } : {}),
@@ -71,7 +90,7 @@ module.exports = ({ strapi }) => {
   const touchWork = row => cas('work', row, {});
   const history = (payload, action, actor, reason = '') => [...payload.reviews, { id: randomUUID(), action, reason, reviewer: actor.canReview ? 'Gallery team' : 'Creator', createdAt: now() }];
   const assetRecord = async key => { const row = await q('asset').findOne({ where: { key } }); if (!row) v.fail(404, 'Asset not found'); return row; };
-  const newRow = async (owner, payload, workKey = null) => q('submission').create({ data: { owner, key: randomUUID(), revision: 1, reviewStatus: 'draft', workKey, activeKey: workKey, payload: { ...payload, assets: payload.assets || [], reviews: [] } } });
+  const newRow = async (owner, payload, workKey = null) => q('submission').create({ data: { owner, key: randomUUID(), revision: 1, reviewStatus: 'draft', workKey, activeKey: workKey, payload: { ...payload, renderUrl: '', assets: payload.assets || [], reviews: [] } } });
   const media = async asset => {
     const a = await assetRecord(asset.id);
     const p = a.payload;
@@ -81,16 +100,16 @@ module.exports = ({ strapi }) => {
       ...(p.mime.startsWith('image/') ? { width: p.width, height: p.height } : {}),
     } });
   };
-  const publish = async (row, work, profile) => {
+  const publish = async (row, work, profile, renderUrl) => {
     const payload = row.payload;
     const cover = await media(payload.assets.find(a => a.kind === 'cover'));
     const file = await media(payload.assets.find(a => a.kind === 'template'));
     const data = {
       name: payload.title, slug: payload.publicSlug || work.key, template_status: 'public', author: profile.payload.displayName,
       creator_handle: profile.handle, gallery_work_key: work.key,
-      template_link: `${store.base()}/gallery/works/${work.key}/preview`,
+      template_link: v.renderUrl(renderUrl),
       thumbnail: cover.id, templateFile: file.id, scenario: payload.scenario, industry: payload.industry,
-      language: payload.language, product: payload.product, description: v.mdxText(payload.description),
+      language: payload.language, product: payload.product, source: 'Competition', description: payload.description,
       download_link: store.url(file.hash, false), supported_version: payload.supportedVersion, featured: false, free: true,
       seo: { metaTitle: payload.title, metaDescription: payload.description.slice(0, 300), shareImage: cover.id },
       // No translated source ID: lifecycle intentionally skips JianDaoYun synchronization.
@@ -230,6 +249,7 @@ module.exports = ({ strapi }) => {
       if (!actor.canReview) v.fail(403, 'Reviewer required');
       if (!['approved', 'changes_requested', 'rejected'].includes(input.action)) v.fail(422, 'Invalid review action');
       const reason = v.text(input.reason, 4000, 'reason', input.action !== 'approved');
+      const renderUrl = input.action === 'approved' ? v.renderUrl(input.renderUrl) : '';
       const result = await withOperation(actor, `review:${id}`, key, input, async () => {
         const row = await getSubmission(id, actor);
         if (row.reviewStatus !== 'pending') v.fail(409, 'Only pending submissions can be reviewed');
@@ -244,12 +264,12 @@ module.exports = ({ strapi }) => {
             workKey = randomUUID();
             work = await q('work').create({ data: { key: workKey, owner: row.owner, revision: 1 } });
           }
-          slug = await publish(row, work, profile);
+          slug = await publish(row, work, profile, renderUrl);
         }
         return q('submission').update({ where: { id: row.id }, data: {
           reviewStatus: input.action, workKey,
           ...(input.action !== 'changes_requested' ? { activeKey: null } : {}),
-          payload: { ...row.payload, ...(slug ? { publicSlug: slug } : {}), reviews: history(row.payload, input.action, actor, reason) },
+          payload: { ...row.payload, ...(input.action === 'approved' ? { renderUrl } : {}), ...(slug ? { publicSlug: slug } : {}), reviews: history(row.payload, input.action, actor, reason) },
         } });
       });
       return submissionDTO(result);
@@ -283,12 +303,27 @@ module.exports = ({ strapi }) => {
         await touchWork(work);
         const docs = strapi.documents('api::template.template');
         if (restore) {
+          const draft = await docs.findOne({ documentId: work.templateDocumentId, status: 'draft' });
+          v.renderUrl(draft?.template_link);
           await docs.update({ documentId: work.templateDocumentId, data: { template_status: 'public' }, status: 'published' });
         } else {
           await docs.unpublish({ documentId: work.templateDocumentId });
           await docs.update({ documentId: work.templateDocumentId, data: { template_status: 'delisted' } });
         }
         await q('work').update({ where: { id: work.id }, data: { publicationStatus: restore ? 'published' : 'delisted' } });
+        return q('submission').findOne({ where: { id: source.id } });
+      }));
+    },
+    async updateRenderLink(actor, id, input) {
+      if (!actor.canReview) v.fail(403, 'Reviewer required');
+      const renderUrl = v.renderUrl(input.renderUrl);
+      return submissionDTO(await strapi.db.transaction(async () => {
+        const work = await getWork(id, actor);
+        const source = await getSubmission(work.currentSubmission, actor);
+        if (!work.templateDocumentId || source.reviewStatus !== 'approved' || input.submissionId !== source.key) v.fail(409, 'Only the current approved version can change its rendering URL');
+        await cas('submission', source, { payload: { ...source.payload, renderUrl, reviews: history(source.payload, 'render_link_updated', actor, 'Rendering URL updated') } }, input.revision);
+        await touchWork(work);
+        await strapi.documents('api::template.template').update({ documentId: work.templateDocumentId, data: { template_link: renderUrl }, ...(work.publicationStatus === 'published' ? { status: 'published' } : {}) });
         return q('submission').findOne({ where: { id: source.id } });
       }));
     },

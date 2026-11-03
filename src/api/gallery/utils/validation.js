@@ -43,8 +43,13 @@ const profile = input => {
 };
 const publicProfile = p => ({ handle: p.handle, displayName: p.displayName, bio: p.bio, avatarUrl: p.avatarUrl, bannerUrl: p.bannerUrl, job: p.job, organization: p.organization, socialLinks: p.socialLinks, website: p.website, hireMe: p.hireMe, ...(p.showCountry ? { country: p.country } : {}), ...(p.hireMe ? { contactUrl: p.contactUrl } : {}) });
 const page = (value, fallback, max) => { const n = value === undefined ? fallback : Number(value); if (!Number.isSafeInteger(n) || n < 1 || n > max) fail(422, 'Invalid pagination'); return n; };
-// Existing Gallery detail pages compile Template.description as MDX on the server.
-// Encode user text before publication so expressions, JSX and ESM never become MDX syntax.
-// Character references are decoded into text nodes by the parser, without reparsing them as code.
-const mdxText = value => Array.from(value).map(char => char === '\n' ? '\n' : `&#${char.codePointAt(0)};`).join('');
-module.exports = { mdxText, fail, text, revision, draft, ready, profile, publicProfile, page };
+// Validate syntax only. Reviewers must check the deployed page and iframe compatibility.
+// Never fetch a reviewer-supplied URL from the CMS server (avoids SSRF).
+const renderUrl = value => {
+  const result = link(value, 'renderUrl');
+  if (!result) fail(422, 'A deployed rendering URL is required before publication');
+  const u = new URL(result);
+  if (u.hostname === 'localhost' || u.hostname.endsWith('.localhost') || u.hostname.endsWith('.local') || !u.hostname.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(u.hostname) || /\/gallery\/(?:works|assets)(?:\/|$)/i.test(u.pathname) || /\.(?:png|jpe?g|webp|gif|svg|mbi|mfvs|fvs|cpt|cptx|frmx|zip)$/i.test(u.pathname)) fail(422, 'Use a deployed rendering page, not a Gallery image preview or file URL');
+  return result;
+};
+module.exports = { renderUrl, fail, text, revision, draft, ready, profile, publicProfile, page };

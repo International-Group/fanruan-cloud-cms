@@ -24,4 +24,5 @@ add('GET', '/admin/gallery/submissions/:id', 'detail', 'review');
 add('POST', '/admin/gallery/submissions/:id/review', 'review', 'review');
 add('POST', '/admin/gallery/works/:id/unpublish', 'unpublish', 'review');
 add('POST', '/admin/gallery/works/:id/republish', 'republish', 'review');
+add('PATCH', '/admin/gallery/works/:id/render-link', 'updateRenderLink', 'review');
 module.exports = { routes };

@@ -38,12 +38,13 @@
 | POST | `/gallery/submissions/:id/withdraw` | 带 revision，撤回待审核版本为草稿 |
 | POST | `/gallery/works/:id/revisions` | 为本人作品创建更新草稿，已有活动版本时返回已有版本 |
 | GET | `/admin/gallery/submissions`、`/admin/gallery/submissions/:id` | 审核员列表 / 详情 |
-| POST | `/admin/gallery/submissions/:id/review` | action=approved/changes_requested/rejected、reason、revision，带 Idempotency-Key |
+| POST | `/admin/gallery/submissions/:id/review` | action=approved/changes_requested/rejected、reason、revision；approved 另必填 renderUrl，带 Idempotency-Key |
 | POST | `/admin/gallery/works/:id/unpublish`、`republish` | reason、revision，下架/恢复当前已批准版本 |
+| PATCH | `/admin/gallery/works/:id/render-link` | 审核员修正当前已通过版本的渲染地址，renderUrl、submissionId、revision；保持现有上下架状态 |
 | GET | `/gallery/assets/:key` | 私有签名访问，或当前公开作品/已绑定公开头像的匿名访问 |
 | GET | `/gallery/works/:key/preview` | 当前公开作品的封面和截图预览 |
 
-列表支持 `page`、`limit`（最多 100），投稿列表另支持 `status`。前端现有批量审核逐条调用 review 即可。
+列表支持 `page`、`limit`（最多 100），投稿列表另支持 `status`。批量审核仅提供退回修改和拒绝；批准发布须逐件填写并检查对应渲染连结。
 
 ## 数据与发布
 
@@ -51,11 +52,15 @@
 
 写操作采用 revision 比较更新，冲突返回 409。幂等键按账号和操作路径隔离，同键不同参数返回 409。审核操作与 Template 发布放在同一数据库事务，失败会回滚审核状态、发布结果、媒体记录和幂等记录，可用原键重试。实现依照 [Strapi 5 数据库事务约定](https://docs-v5.strapi.io/cms/database-transactions)。
 
-现有前端会将 Template.description 交给 MDX 服务端编译，因此发布时将投稿简介编码为纯文本字符引用，禁止将用户输入当作 JSX、表达式或 ESM 执行；私人投稿快照仍保留原始可编辑文本。
+外部投稿发布时固定 source=Competition，description 保存可读 Unicode 原文。Gallery 的三个作品详情入口对带 creator_handle 的作者简介使用 React 纯文本渲染，不交给 MDX 编译；内部编辑内容继续沿用原有 MDX 路径。
 
 批准作品时创建/更新现有 Template，写入 thumbnail、templateFile、SEO、下载地址及作者 handle。Template 继续使用现有生命周期与 slug 历史逻辑。新增 `creator_handle` 提供前端作者链接；`gallery_work_key` 为内部关联。更新作品发布时沿用原 Template documentId，保留收藏关联；待审或被拒绝的更新不替换公开版本。公开作者资料使用白名单输出，不包含 goals、账号信息、审核记录、隐藏国家及关闭联系入口时的 contactUrl。
 
-预览目前是**封面/截图 HTML 展示**，不会执行上传的 BI/报表文件。自动部署 FineBI/FineReport/FineVis 运行环境不属于此接口实现；需另行连接对应产品的发布服务。模板文件按产品扩展名、100 MB 上限及 ZIP 结构/XML 文件头验证；不会执行或解压上传内容。封面/截图/头像 PNG/JPEG/WebP 最大 5 MB，经解码重新编码为 WebP，截图最多五张。
+批准前必须填写真实部署后的公开 HTTPS 渲染页面，后端拒绝缺失地址、Gallery 图片预览、图片/附件直链、本机地址及带帐号密码的 URL。`template_link` 写入审核员提供的地址，不再自动填入 `/gallery/works/:key/preview`。新版本不能沿用旧版未确认的地址。当前已通过版本支持修改地址，旧版本不可覆盖当前版本；下架作品修改地址不会自动上架，恢复发布也必须有有效地址。审核记录保留变更动作。
+
+旧的 `/gallery/works/:key/preview` 只为兼容已有作品保留封面/截图展示，不是渲染服务。已有发布数据不会自动下架或批量改写；审核员应逐件补上真实连结。CMS 不执行模板，不请求任意用户网址；URL 校验只检查格式和已知占位地址，审核员须实际检查可运行与可嵌入性。FineBI/FineReport/FineVis 的部署仍在对应产品环境完成。
+
+模板文件按产品扩展名、100 MB 上限及 ZIP 结构/XML 文件头验证；不会执行或解压上传内容。封面/截图/头像 PNG/JPEG/WebP 最大 5 MB，经解码重新编码为 WebP，截图最多五张。
 
 ## 验证
 
@@ -67,3 +72,8 @@ npm test
 ```
 
 HTTP 集成测试创建临时 Strapi、SQLite、文件目录和测试账号服务，启动前断言应用目录/数据库目录都在临时目录，并禁止读取项目 `.env`。验证身份与归属、资料唯一地址、图片归属、私有文件访问、上传校验、revision 竞争、幂等、审核反馈、发布失败回滚、公开白名单、更新版本与上下架。
+
+
+## 修复旧投稿元数据（本地）
+
+使用 `node scripts/repair-gallery-template-metadata.js --sqlite /absolute/path/data/database.db` 预览；追加 `--apply` 才会应用。命令强制核对 SQLite 路径，并在应用前备份至 `runtime/gallery-backups`。修复仅针对 gallery_work_key 对应当前已批准投稿的 Template 记录（草稿和公开版分别处理），固定 source=Competition；仅当旧简介严格等于原投稿经旧字符实体编码后的结果时还原原文，不覆盖 CMS 中额外编辑的简介。条件更新防止并发覆盖，整个修复在数据库事务中执行，不改变作品上下架状态或渲染链接。
