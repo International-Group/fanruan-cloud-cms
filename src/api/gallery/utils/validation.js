@@ -21,13 +21,19 @@ const draft = input => {
   for (const f of fields) result[f] = text(input[f], ['description', 'instructions'].includes(f) ? 20000 : 200, f);
   for (const f of ['product', 'language', 'industry', 'scenario']) if (!template.attributes[f].enum.includes(result[f])) fail(422, `Invalid ${f}`);
   if (typeof input.rightsConfirmed !== 'boolean') fail(422, 'Invalid rightsConfirmed');
+  result.submissionType = input.submissionType === undefined ? 'file' : input.submissionType;
+  if (!['file', 'link'].includes(result.submissionType)) fail(422, 'Invalid submissionType');
+  // Drafts may retain an incomplete address; submission and approval validate the page URL.
+  result.submittedRenderUrl = text(input.submittedRenderUrl, 2048, 'submittedRenderUrl');
   result.rightsConfirmed = input.rightsConfirmed;
   return result;
 };
 const ready = payload => {
   for (const f of ['title', 'description', 'product', 'supportedVersion', 'language', 'industry', 'scenario', 'authorName']) if (!payload[f]) fail(422, `${f} is required`);
   if (!payload.rightsConfirmed) fail(422, 'Distribution rights must be confirmed');
-  if (!payload.assets.some(a => a.kind === 'cover') || !payload.assets.some(a => a.kind === 'template')) fail(422, 'Cover and template file are required');
+  if (!payload.assets.some(a => a.kind === 'cover')) fail(422, 'Cover is required');
+  if (payload.submissionType === 'link') renderUrl(payload.submittedRenderUrl);
+  else if (!payload.assets.some(a => a.kind === 'template')) fail(422, 'Template file is required');
 };
 const profile = input => {
   const handle = text(input.handle, 30, 'handle', true);
@@ -41,7 +47,7 @@ const profile = input => {
   for (const f of socials) result.socialLinks[f] = link(input.socialLinks?.[f], f);
   return result;
 };
-const publicProfile = p => ({ handle: p.handle, displayName: p.displayName, bio: p.bio, avatarUrl: p.avatarUrl, bannerUrl: p.bannerUrl, job: p.job, organization: p.organization, socialLinks: p.socialLinks, website: p.website, hireMe: p.hireMe, ...(p.showCountry ? { country: p.country } : {}), ...(p.hireMe ? { contactUrl: p.contactUrl } : {}) });
+const publicProfile = p => ({ handle: p.handle, displayName: p.displayName, bio: p.bio, avatarUrl: /\/gallery\/assets\//i.test(p.avatarUrl || '') ? '' : p.avatarUrl, bannerUrl: p.bannerUrl, job: p.job, organization: p.organization, socialLinks: p.socialLinks, website: p.website, hireMe: p.hireMe, ...(p.showCountry ? { country: p.country } : {}), ...(p.hireMe ? { contactUrl: p.contactUrl } : {}) });
 const page = (value, fallback, max) => { const n = value === undefined ? fallback : Number(value); if (!Number.isSafeInteger(n) || n < 1 || n > max) fail(422, 'Invalid pagination'); return n; };
 // Validate syntax only. Reviewers must check the deployed page and iframe compatibility.
 // Never fetch a reviewer-supplied URL from the CMS server (avoids SSRF).
@@ -52,4 +58,4 @@ const renderUrl = value => {
   if (u.hostname === 'localhost' || u.hostname.endsWith('.localhost') || u.hostname.endsWith('.local') || !u.hostname.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(u.hostname) || /\/gallery\/(?:works|assets)(?:\/|$)/i.test(u.pathname) || /\.(?:png|jpe?g|webp|gif|svg|mbi|mfvs|fvs|cpt|cptx|frmx|zip)$/i.test(u.pathname)) fail(422, 'Use a deployed rendering page, not a Gallery image preview or file URL');
   return result;
 };
-module.exports = { renderUrl, fail, text, revision, draft, ready, profile, publicProfile, page };
+module.exports = { profileAvatar: value => link(value, 'avatarUrl', true), renderUrl, fail, text, revision, draft, ready, profile, publicProfile, page };

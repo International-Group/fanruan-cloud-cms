@@ -22,6 +22,7 @@ module.exports = async (ctx, config, { strapi }) => {
   if (config.review && !canReview) fail(403, 'Gallery reviewer permission required');
   try { await strapi.service('api::gallery.notifications').syncContact(owner, user); }
   catch { strapi.log.warn('[Gallery mail] Could not refresh notification contact; existing authentication remains valid.'); }
+  await strapi.service('api::gallery.gallery').syncAccountAvatar(owner, user.avatar);
   ctx.state.gallery = { owner, canReview, canSubmit, avatar: typeof user.avatar === 'string' ? user.avatar : '', name: user.name || user.username || '' };
   return true;
 };

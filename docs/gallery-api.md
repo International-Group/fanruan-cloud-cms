@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | GET | `/gallery/me` | canReview / needsOnboarding / profileHandle |
 | GET / PUT | `/gallery/profile/me` | 读取本人完整资料 / 带 revision 保存 |
-| POST | `/gallery/profile/avatar`、`/gallery/profile/banner` | multipart `file`，带 Idempotency-Key；暂存图片，不提前完成资料 |
+| POST | `/gallery/profile/banner` | multipart `file`，带 Idempotency-Key；暂存图片，不提前完成资料 |
 | GET | `/gallery/creators/:handle` | 匿名公开资料、已发布作品、分页；product、sort=newest/popular、page、limit |
 | GET / POST | `/gallery/submissions` | 本人分页列表 / 创建草稿，创建带 Idempotency-Key、revision=0 |
 | GET / PATCH / DELETE | `/gallery/submissions/:id` | 本人详情 / 更新可编辑版本 / 删除草稿；写操作带 revision |
@@ -41,7 +41,7 @@
 | POST | `/admin/gallery/submissions/:id/review` | action=approved/changes_requested/rejected、reason、revision；approved 另必填 renderUrl，带 Idempotency-Key |
 | POST | `/admin/gallery/works/:id/unpublish`、`republish` | reason、revision，下架/恢复当前已批准版本 |
 | PATCH | `/admin/gallery/works/:id/render-link` | 审核员修正当前已通过版本的渲染地址，renderUrl、submissionId、revision；保持现有上下架状态 |
-| GET | `/gallery/assets/:key` | 私有签名访问，或当前公开作品/已绑定公开头像的匿名访问 |
+| GET | `/gallery/assets/:key` | 私有签名访问，或当前公开作品/已绑定公开横幅的匿名访问 |
 | GET | `/gallery/works/:key/preview` | 当前公开作品的封面和截图预览 |
 
 列表支持 `page`、`limit`（最多 100），投稿列表另支持 `status`。批量审核仅提供退回修改和拒绝；批准发布须逐件填写并检查对应渲染连结。
@@ -60,7 +60,7 @@
 
 旧的 `/gallery/works/:key/preview` 只为兼容已有作品保留封面/截图展示，不是渲染服务。已有发布数据不会自动下架或批量改写；审核员应逐件补上真实连结。CMS 不执行模板，不请求任意用户网址；URL 校验只检查格式和已知占位地址，审核员须实际检查可运行与可嵌入性。FineBI/FineReport/FineVis 的部署仍在对应产品环境完成。
 
-模板文件按产品扩展名、100 MB 上限及 ZIP 结构/XML 文件头验证；不会执行或解压上传内容。封面/截图/头像 PNG/JPEG/WebP 最大 5 MB，经解码重新编码为 WebP，截图最多五张。
+模板文件按产品扩展名、100 MB 上限及 ZIP 结构/XML 文件头验证；不会执行或解压上传内容。封面/截图/横幅 PNG/JPEG/WebP 最大 5 MB，经解码重新编码为 WebP，截图最多五张。
 
 ## 验证
 
@@ -136,3 +136,26 @@ node scripts/init-gallery-versions.js --apply --sqlite /absolute/path/to/data/da
 ```
 
 脚本先备份选定的本地 SQLite，再同步模型、补录版本，最后退出；不监听 HTTP、不发送审核邮件。数据库迁移期间应保持开发服务关闭。
+
+
+## 头像由统一账号管理
+
+Gallery 不提供头像设置。编辑资料及首次引导显示账号头像与“前往账号管理修改头像”链接，指向配置的账号中心 `/?tab=account`，新分頁开启以保留未保存的 Gallery 表单。横幅仍在 Gallery 编辑。没有账号头像时显示默认占位，不阻止保存。
+
+- `POST /gallery/profile/avatar` 已停用，鉴权后返回 410；服务层也禁止 avatar 上传。
+- `PUT /gallery/profile/me` 忽略客户端 avatarUrl，只接受本次统一账号 `/user/profile` 校验返回的头像；不能通过旧表单或任意 URL 覆盖。
+- `GET /gallery/profile/me` 在原 profile 之外返回最新 `avatarUrl`；`GET /gallery/me` 也返回它。
+- 每次已登录 Gallery 请求会同步该账号的头像缓存；不递增作者资料 revision，避免与未保存的资料冲突。公开作者主页使用同步后的缓存，因此更新需作者返回 Gallery 或下次发起已登录请求；没有账号头像时会清除旧的 Gallery 头像引用。
+- 编辑页返回焦点时仅刷新头像，不覆盖未保存的昵称、简介、横幅选择等字段；本人作者主页也在返回时刷新头像。
+- 旧 Gallery 头像文件不主动删除，但不再通过“已绑定公开头像”规则授予匿名访问。既有临时签名链接仍在有效期内可读。备份/清理遵循附件保留策略。
+
+## 两种投稿方式
+
+投稿 payload 新增 `submissionType: "file" | "link"`（旧数据/新建请求省略时默认 file）和 `submittedRenderUrl`（作者填写的链接）。这两个字段属于草稿内容，进入历史快照；`renderUrl` 仍由审核员控制，作者不能用草稿保存直接修改已发布地址。旧客户端 PATCH 省略新字段时会保留原值。
+
+- **file**：按产品上传模板文件（支持 FineVis 的 `.mfvs`/`.fvs`、FineBI 的 `.mbi`，同时保留现有产品格式），封面和模板文件必填；审核员部署后填写公开 HTTPS 渲染页再批准。
+- **link**：作者填写公开 HTTPS 渲染页，无需模板文件；封面、基础信息及版权确认仍必填，截图可选。草稿可保存未完成的 URL，但提交和批准必须通过与文件类最终地址一致的 URL 校验。链接类拒绝新增 template 附件。
+- 审核详情自动将作者链接预填到发布地址。审核员需打开检查内容、可访问性与 iframe 嵌入效果，可修正地址或退回；不会自动批准。链接类批准 API 可省略 renderUrl，此时使用作者地址；显式传入地址则使用审核员确认的值，同时保留作者原始地址。
+- 两类都使用原提交、撤回、审核、通知和版本接口。首次创建新版投稿时沿用投稿方式及作者链接，清空上一版审核员发布地址。
+- 链接类发布仍生成/更新同一 Template，template_link 为确认后的链接；templateFile 清空、download_link 为 `#`，公开页面只提供在线预览，不显示下载按钮。文件类改为链接类时会清除旧下载引用，旧文件只通过授权的历史/私有签名链接读取，不能继续匿名下载。
+- 切换方式时保留已上传的模板资产引用供后续编辑和历史追溯；链接类不将这些资产作为公开下载资源。新增字段存于既有 JSON payload，不需要模型或数据库结构迁移，旧作品继续按 file 处理。

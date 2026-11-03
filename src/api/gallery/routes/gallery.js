@@ -4,7 +4,7 @@ const add = (method, path, handler, access = 'owner') => routes.push({ method, p
 add('GET', '/gallery/me', 'me');
 add('GET', '/gallery/profile/me', 'profile');
 add('PUT', '/gallery/profile/me', 'saveProfile');
-add('POST', '/gallery/profile/avatar', 'avatar');
+add('POST', '/gallery/profile/avatar', 'avatar'); // Deprecated: responds 410; never accepts uploads.
 add('POST', '/gallery/profile/banner', 'banner');
 add('GET', '/gallery/creators/:handle', 'portfolio', 'public');
 add('GET', '/gallery/assets/:key', 'asset', 'public');

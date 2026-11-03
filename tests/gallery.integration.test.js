@@ -16,8 +16,9 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
   fs.symlinkSync(path.join(source, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
   fs.copyFileSync(path.join(source, 'package.json'), path.join(dir, 'package.json'));
+  let accountAvatar = 'https://media.example.test/account-photo-v1.png';
   const account = http.createServer((req, res) => {
-    const user = { 'Bearer creator': { uid: 'creator', name: 'Test Creator', email: 'creator@example.test', emailVerified: true }, 'Bearer other': { uid: 'other' }, 'Bearer reviewer': { uid: 'reviewer' } }[req.headers.authorization];
+    const user = { 'Bearer creator': { uid: 'creator', name: 'Test Creator', avatar: accountAvatar, email: 'creator@example.test', emailVerified: true }, 'Bearer other': { uid: 'other' }, 'Bearer reviewer': { uid: 'reviewer' } }[req.headers.authorization];
     res.writeHead(user ? 200 : 401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(user || {}));
   }).listen(0, '127.0.0.1');
   await once(account, 'listening');
@@ -134,13 +135,43 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   await call(`/gallery/submissions/${s.id}/submit`, { method: 'POST', body: { revision: s.revision }, key: 'incomplete', status: 422 });
   const sharp = require('sharp');
   const png = await sharp({ create: { width: 16, height: 12, channels: 3, background: '#22aa88' } }).png().toBuffer();
-  const avatarForm = () => { const form = new FormData(); form.append('file', new Blob([png]), 'avatar.png'); return form; };
-  const avatar = await call('/gallery/profile/avatar', { method: 'POST', body: avatarForm(), key: 'avatar' });
-  assert.equal((await call('/gallery/profile/avatar', { method: 'POST', body: avatarForm(), key: 'avatar' })).avatarUrl, avatar.avatarUrl);
-  assert.equal((await fetch(avatar.avatarUrl)).status, 404);
-  p = await call('/gallery/profile/me', { method: 'PUT', body: { ...p, avatarUrl: avatar.avatarUrl } });
-  assert.equal((await fetch(avatar.avatarUrl)).status, 200);
-  await call('/gallery/profile/me', { user: 'other', method: 'PUT', body: { ...profile, handle: 'other-creator', avatarUrl: avatar.avatarUrl }, status: 422 });
+  const bannerForm = () => { const form = new FormData(); form.append('file', new Blob([png]), 'banner.png'); return form; };
+  await call('/gallery/profile/avatar', { method: 'POST', body: bannerForm(), key: 'avatar-removed', status: 410 });
+  await assert.rejects(app.service('api::gallery.gallery').profileUpload({ owner: 'creator' }, 'avatar', null, 'direct-avatar'), /account settings/);
+  const banner = await call('/gallery/profile/banner', { method: 'POST', body: bannerForm(), key: 'banner' });
+  assert.equal((await call('/gallery/profile/banner', { method: 'POST', body: bannerForm(), key: 'banner' })).bannerUrl, banner.bannerUrl);
+  assert.equal((await fetch(banner.bannerUrl)).status, 404);
+  p = await call('/gallery/profile/me', { method: 'PUT', body: { ...p, bannerUrl: banner.bannerUrl, avatarUrl: 'javascript:malicious-ignored' } });
+  assert.equal(p.avatarUrl, accountAvatar, 'Gallery profile input cannot replace the account avatar');
+  assert.equal((await fetch(banner.bannerUrl)).status, 200);
+  await call('/gallery/profile/me', { user: 'other', method: 'PUT', body: { ...profile, handle: 'other-creator', bannerUrl: banner.bannerUrl }, status: 422 });
+  const profileRows = app.db.query('api::gallery-profile.gallery-profile');
+  const legacyProfile = await profileRows.findOne({ where: { owner: 'creator' } });
+  await profileRows.update({ where: { id: legacyProfile.id }, data: { payload: { ...legacyProfile.payload, avatarUrl: banner.bannerUrl } } });
+  assert.equal((await call('/gallery/creators/test-creator', { user: null })).profile.avatarUrl, '', 'legacy Gallery avatar URLs should use a placeholder until account sync');
+  const avatarRevision = p.revision;
+  accountAvatar = 'https://media.example.test/account-photo-v2.png';
+  const syncedPhoto = await call('/gallery/profile/me');
+  assert.equal(syncedPhoto.avatarUrl, accountAvatar);
+  assert.equal(syncedPhoto.profile.avatarUrl, accountAvatar);
+  assert.equal(syncedPhoto.profile.revision, avatarRevision, 'account photo cache refresh must not conflict with unsaved Gallery edits');
+  assert.equal((await call('/gallery/creators/test-creator', { user: null })).profile.avatarUrl, accountAvatar);
+  assert.equal((await call('/gallery/me')).avatarUrl, accountAvatar);
+  // Saving a form loaded before the account change must not restore its old photo.
+  p = await call('/gallery/profile/me', { method: 'PUT', body: { ...p, bio: 'Keep this Gallery edit', avatarUrl: 'https://untrusted.example.test/not-the-account-photo.png' } });
+  assert.equal(p.avatarUrl, accountAvatar);
+  assert.equal(p.bio, 'Keep this Gallery edit');
+  accountAvatar = '';
+  const noPhoto = await call('/gallery/profile/me');
+  assert.equal(noPhoto.profile.avatarUrl, '');
+  p = await call('/gallery/profile/me', { method: 'PUT', body: { ...p, avatarUrl: banner.bannerUrl } });
+  assert.equal(p.avatarUrl, '', 'an account without a photo can save and cannot set a Gallery avatar');
+  accountAvatar = 'javascript:invalid-account-avatar';
+  assert.equal((await call('/gallery/profile/me')).avatarUrl, '');
+  accountAvatar = 'https://media.example.test/account-photo-v3.png';
+  await call('/gallery/me');
+  assert.equal((await call('/gallery/creators/test-creator', { user: null })).profile.avatarUrl, accountAvatar);
+
   const upload = async (kind, bytes, filename, status = 200, key = `upload-${kind}-${s.revision}`) => {
     const form = new FormData(); form.append('kind', kind); form.append('revision', String(s.revision)); form.append('file', new Blob([bytes]), filename);
     return call(`/gallery/submissions/${s.id}/assets`, { method: 'POST', body: form, key, status });
@@ -353,6 +384,62 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   assert.equal((await call(`/admin/gallery/submissions/${updated.id}`, { user: 'reviewer' })).emailNotification.status, 'sent');
   await call(`/admin/gallery/submissions/${updated.id}/notifications/retry`, { user: 'reviewer', method: 'POST', status: 409 });
   assert.equal(await mailRows.count({ where: { state: 'sending' } }), 0);
+  // Authors can submit an online work without uploading a template file.
+  await call('/gallery/submissions', { method: 'POST', body: { ...draft, submissionType: 'unsupported' }, key: 'bad-method', status: 422 });
+  let online = await call('/gallery/submissions', { method: 'POST', body: { ...draft, title: 'Online only', submissionType: 'link', submittedRenderUrl: 'not finished' }, key: 'online-create', status: 201 });
+  assert.equal(online.submissionType, 'link');
+  assert.equal(online.submittedRenderUrl, 'not finished', 'incomplete rendering URLs may be saved as drafts');
+  const onlineUpload = (kind, name, bytes, revision) => {
+    const form = new FormData(); form.append('kind', kind); form.append('revision', String(revision)); form.append('file', new Blob([bytes]), name); return form;
+  };
+  online = await call(`/gallery/submissions/${online.id}/assets`, { method: 'POST', body: onlineUpload('cover', 'online-cover.png', png, online.revision), key: 'online-cover' });
+  const beforeRejectedFile = online.revision;
+  await call(`/gallery/submissions/${online.id}/assets`, { method: 'POST', body: onlineUpload('template', 'online.mbi', Buffer.from('not-a-template'), online.revision), key: 'online-file-rejected', status: 422 });
+  assert.equal((await call(`/gallery/submissions/${online.id}`)).revision, beforeRejectedFile);
+  for (const [index, url] of ['', 'javascript:alert(1)', 'http://localhost:1337/view', 'https://render.example.com/template.mfvs', 'https://cms.example/api/gallery/works/test/preview'].entries()) {
+    online = await call(`/gallery/submissions/${online.id}`, { method: 'PATCH', body: { ...draft, title: 'Online only', submissionType: 'link', submittedRenderUrl: url, revision: online.revision } });
+    await call(`/gallery/submissions/${online.id}/submit`, { method: 'POST', body: { revision: online.revision }, key: `invalid-link-${index}`, status: 422 });
+  }
+  const onlineUrl = 'https://render.example.com/view/author-online';
+  online = await call(`/gallery/submissions/${online.id}`, { method: 'PATCH', body: { ...draft, title: 'Online only', submissionType: 'link', submittedRenderUrl: onlineUrl, renderUrl: 'https://unreviewed.example.com/view', revision: online.revision } });
+  assert.equal(online.renderUrl, '', 'authors cannot set the reviewer-controlled published URL');
+  // Older clients that omit the new fields must not accidentally change the submission method.
+  online = await call(`/gallery/submissions/${online.id}`, { method: 'PATCH', body: { ...draft, title: 'Online only', revision: online.revision } });
+  assert.equal(online.submissionType, 'link'); assert.equal(online.submittedRenderUrl, onlineUrl);
+  online = await call(`/gallery/submissions/${online.id}/submit`, { method: 'POST', body: { revision: online.revision }, key: 'online-submit' });
+  assert.equal(online.reviewStatus, 'pending');
+  assert.equal(online.assets.some(a => a.kind === 'template'), false);
+  await call(`/gallery/submissions/${online.id}`, { user: 'other', status: 404 });
+  await call(`/admin/gallery/submissions/${online.id}/review`, { method: 'POST', body: { revision: online.revision, action: 'approved' }, key: 'online-unauthorized', status: 403 });
+  const onlinePendingRevision = online.revision;
+  online = await call(`/admin/gallery/submissions/${online.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: online.revision, action: 'approved' }, key: 'online-approve' });
+  assert.equal(online.renderUrl, onlineUrl, 'approval can use the author URL without typing it again');
+  assert.equal((await call(`/admin/gallery/submissions/${online.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: onlinePendingRevision, action: 'approved' }, key: 'online-approve' })).revision, online.revision);
+  const onlineWork = (await call('/gallery/creators/test-creator', { user: null })).works.find(w => w.id === online.workId);
+  const onlineTemplate = await app.documents('api::template.template').findOne({ documentId: onlineWork.documentId, status: 'published', populate: ['templateFile'] });
+  assert.equal(onlineTemplate.template_link, onlineUrl); assert.equal(onlineTemplate.download_link, '#'); assert.equal(onlineTemplate.templateFile, null);
+  const onlineHistory = await call(`/gallery/submissions/${online.id}/versions`);
+  const onlineSnapshot = await call(`/gallery/submissions/${online.id}/versions/${encodeURIComponent(onlineHistory.items[0].id)}`);
+  assert.equal(onlineSnapshot.snapshot.submissionType, 'link'); assert.equal(onlineSnapshot.snapshot.submittedRenderUrl, onlineUrl);
+  let onlineRevision = await call(`/gallery/works/${online.workId}/revisions`, { method: 'POST' });
+  assert.equal(onlineRevision.submissionType, 'link'); assert.equal(onlineRevision.submittedRenderUrl, onlineUrl); assert.equal(onlineRevision.renderUrl, '');
+  onlineRevision = await call(`/gallery/submissions/${onlineRevision.id}`, { method: 'PATCH', body: { ...draft, submissionType: 'file', submittedRenderUrl: onlineUrl, revision: onlineRevision.revision } });
+  await call(`/gallery/submissions/${onlineRevision.id}/submit`, { method: 'POST', body: { revision: onlineRevision.revision }, key: 'online-needs-file', status: 422 });
+  // Converting a published file work into a link removes its public download, while retaining version files privately.
+  let converted = await call(`/gallery/works/${approved.workId}/revisions`, { method: 'POST' });
+  const oldTemplateAsset = converted.assets.find(a => a.kind === 'template');
+  converted = await call(`/gallery/submissions/${converted.id}`, { method: 'PATCH', body: { ...draft, submissionType: 'link', submittedRenderUrl: onlineUrl, revision: converted.revision } });
+  converted = await call(`/gallery/submissions/${converted.id}/submit`, { method: 'POST', body: { revision: converted.revision }, key: 'converted-submit' });
+  converted = await call(`/admin/gallery/submissions/${converted.id}/review`, { user: 'reviewer', method: 'POST', body: { revision: converted.revision, action: 'approved', renderUrl: 'https://render.example.com/view/reviewer-corrected' }, key: 'converted-approve' });
+  assert.equal(converted.renderUrl, 'https://render.example.com/view/reviewer-corrected');
+  assert.equal(converted.submittedRenderUrl, onlineUrl, 'reviewer corrections must preserve the author input');
+  const convertedTemplate = await app.documents('api::template.template').findOne({ documentId: originalDocument, status: 'published', populate: ['templateFile'] });
+  assert.equal(convertedTemplate.download_link, '#'); assert.equal(convertedTemplate.templateFile, null);
+  assert.equal((await fetch(`${origin}${new URL(oldTemplateAsset.url).pathname}`)).status, 404);
+  const oldVersionFiles = await call(`/gallery/submissions/${converted.id}/versions/${encodeURIComponent(firstVersionKey.split(':')[0] + ':' + savedRevision)}`);
+  // The older cover snapshot remains available to its owner; full file snapshots are retained as well.
+  assert.ok(oldVersionFiles.snapshot.assets.length > 0);
+  assert.equal((await fetch((await call(`/gallery/submissions/${converted.id}`)).assets.find(a => a.kind === 'template').url)).status, 200);
   // Generic CRUD endpoints for all private models must not exist.
   for (const name of ['profiles', 'submissions', 'assets', 'operations', 'works', 'contacts', 'notifications', 'creators', 'badges']) await call(`/gallery-${name}`, { user: null, status: 404 });
 });

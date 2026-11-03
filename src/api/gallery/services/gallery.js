@@ -6,6 +6,7 @@ const UID = name => `api::gallery-${name}.gallery-${name}`;
 const now = () => new Date().toISOString();
 const editable = row => ['draft', 'changes_requested'].includes(row.reviewStatus);
 const uniqueError = e => /unique|duplicate/i.test(e.message || '');
+const accountAvatar = value => { try { return v.profileAvatar(value); } catch { return ''; } };
 
 module.exports = ({ strapi }) => {
   const q = name => strapi.db.query(UID(name));
@@ -113,14 +114,14 @@ module.exports = ({ strapi }) => {
   const publish = async (row, work, profile, renderUrl) => {
     const payload = row.payload;
     const cover = await media(payload.assets.find(a => a.kind === 'cover'));
-    const file = await media(payload.assets.find(a => a.kind === 'template'));
+    const file = payload.submissionType === 'link' ? null : await media(payload.assets.find(a => a.kind === 'template'));
     const data = {
       name: payload.title, slug: payload.publicSlug || work.key, template_status: 'public', author: profile.payload.displayName,
       creator_handle: profile.handle, gallery_work_key: work.key,
       template_link: v.renderUrl(renderUrl),
-      thumbnail: cover.id, templateFile: file.id, scenario: payload.scenario, industry: payload.industry,
+      thumbnail: cover.id, templateFile: file ? file.id : null, scenario: payload.scenario, industry: payload.industry,
       language: payload.language, product: payload.product, source: 'Competition', description: payload.description,
-      download_link: store.url(file.hash, false), supported_version: payload.supportedVersion, featured: false, free: true,
+      download_link: file ? store.url(file.hash, false) : '#', supported_version: payload.supportedVersion, featured: false, free: true,
       seo: { metaTitle: payload.title, metaDescription: payload.description.slice(0, 300), shareImage: cover.id },
       // No translated source ID: lifecycle intentionally skips JianDaoYun synchronization.
     };
@@ -135,17 +136,28 @@ module.exports = ({ strapi }) => {
     return published.slug;
   };
   const service = {
-    async me(actor) { const p = await getProfile(actor.owner); return { ...await operations().permissions(actor.owner), needsOnboarding: !p?.payload?.onboardingCompleted, profileHandle: p?.handle || null }; },
-    async profile(actor) { return { profile: profileDTO(await getProfile(actor.owner)) }; },
+    async me(actor) { const p = await getProfile(actor.owner); return { avatarUrl: accountAvatar(actor.avatar), ...await operations().permissions(actor.owner), needsOnboarding: !p?.payload?.onboardingCompleted, profileHandle: p?.handle || null }; },
+    async syncAccountAvatar(owner, avatar) {
+      const avatarUrl = accountAvatar(avatar);
+      // Account avatars are a cache, not an editable Gallery profile field. A conditional
+      // update preserves concurrent profile edits without changing the editor revision.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const row = await getProfile(owner);
+        if (!row || row.payload.avatarUrl === avatarUrl) return;
+        const changed = await q('profile').updateMany({ where: { id: row.id, revision: row.revision }, data: { payload: { ...row.payload, avatarUrl } } });
+        if (changed.count === 1) return;
+      }
+    },
+    async profile(actor) { return { profile: profileDTO(await getProfile(actor.owner)), avatarUrl: accountAvatar(actor.avatar) }; },
     async saveProfile(actor, input) {
-      const payload = v.profile(input); const revision = v.revision(input.revision);
+      const payload = v.profile({ ...input, avatarUrl: accountAvatar(actor.avatar) }); const revision = v.revision(input.revision);
       try {
         return await strapi.db.transaction(async () => {
           const old = await getProfile(actor.owner);
           if (old && old.handle !== payload.handle) v.fail(409, 'Profile handle cannot be changed');
-          for (const kind of ['avatar', 'banner']) {
+          for (const kind of ['banner']) {
             const url = payload[`${kind}Url`];
-            if (!url || (kind === 'avatar' && url === actor.avatar)) continue;
+            if (!url) continue;
             const match = await q('asset').findMany({ where: { owner: actor.owner, scope: `profile:${kind}` } });
             if (!match.some(a => store.url(a.key, false) === url)) v.fail(422, `${kind} must be uploaded by this account`);
           }
@@ -157,6 +169,7 @@ module.exports = ({ strapi }) => {
       } catch (error) { if (uniqueError(error)) v.fail(409, 'Handle already in use or concurrent profile update'); throw error; }
     },
     async profileUpload(actor, kind, file, key) {
+      if (kind !== 'banner') v.fail(403, 'Profile photos are managed in account settings');
       const digest = file && !Array.isArray(file) && await hashFile(file);
       const result = await withOperation(actor, `profile:${kind}`, key, { digest, name: file?.originalFilename }, async ({ onRollback }) => {
         const asset = await store.write(file, kind);
@@ -187,11 +200,10 @@ module.exports = ({ strapi }) => {
       return submissionDTO(result);
     },
     async update(actor, key, input) {
-      const payload = v.draft(input);
       return submissionDTO(await strapi.db.transaction(async () => {
         const row = await ownSubmission(key, actor);
         if (!editable(row)) v.fail(409, 'Submission cannot be edited in this state');
-        return cas('submission', row, { payload: { ...row.payload, ...payload } }, input.revision);
+        return cas('submission', row, { payload: { ...row.payload, ...v.draft({ ...row.payload, ...input }) } }, input.revision);
       }));
     },
     async upload(actor, id, input, file, key) {
@@ -204,6 +216,7 @@ module.exports = ({ strapi }) => {
       const result = await withOperation(actor, `upload:${id}`, key, { ...input, digest, name: file.originalFilename }, async ({ onRollback }) => {
         const row = await ownSubmission(id, actor);
         if (!editable(row)) v.fail(409, 'Submission is not editable');
+        if (row.payload.submissionType === 'link' && input.kind === 'template') v.fail(422, 'Link submissions do not accept template files');
         // Claim the row before file IO. Transaction rollback restores it on any failure.
         await cas('submission', row, {}, revision, null);
         if (input.kind === 'screenshot' && row.payload.assets.filter(a => a.kind === 'screenshot').length >= 5) v.fail(422, 'Maximum five screenshots');
@@ -237,7 +250,7 @@ module.exports = ({ strapi }) => {
         if (!editable(row)) v.fail(409, 'Submission is not editable');
         v.ready(row.payload);
         // Revalidate attachment type against product even if the product changed after upload.
-        for (const item of row.payload.assets.filter(a => a.kind === 'template')) {
+        for (const item of row.payload.assets.filter(a => a.kind === 'template' && row.payload.submissionType !== 'link')) {
           const asset = await assetRecord(item.id);
           const formats = { FineBI: ['.mbi', '.zip'], FineReport: ['.cpt', '.cptx', '.frmx', '.zip'], FineVis: ['.mfvs', '.fvs', '.zip'], FineDataLink: ['.zip'] };
           if (!formats[row.payload.product].includes(asset.payload.ext)) v.fail(422, 'Template file does not match product');
@@ -265,10 +278,10 @@ module.exports = ({ strapi }) => {
       if (!actor.canReview) v.fail(403, 'Reviewer required');
       if (!['approved', 'changes_requested', 'rejected'].includes(input.action)) v.fail(422, 'Invalid review action');
       const reason = v.text(input.reason, 4000, 'reason', input.action !== 'approved');
-      const renderUrl = input.action === 'approved' ? v.renderUrl(input.renderUrl) : '';
       const result = await withOperation(actor, `review:${id}`, key, input, async () => {
         const row = await getSubmission(id, actor);
         if (row.reviewStatus !== 'pending') v.fail(409, 'Only pending submissions can be reviewed');
+        const renderUrl = input.action === 'approved' ? v.renderUrl(input.renderUrl ?? (row.payload.submissionType === 'link' ? row.payload.submittedRenderUrl : '')) : '';
         await cas('submission', row, {}, input.revision, null);
         let workKey = row.workKey; let slug = row.payload.publicSlug;
         if (input.action === 'approved') {
@@ -419,7 +432,7 @@ module.exports = ({ strapi }) => {
       if (asset.scope.startsWith('profile:')) {
         const profile = await getProfile(asset.owner);
         const field = `${asset.scope.split(':')[1]}Url`;
-        if (profile?.payload?.[field] === store.url(key, false)) return asset.payload;
+        if (field === 'bannerUrl' && profile?.payload?.[field] === store.url(key, false)) return asset.payload;
       } else {
         // Assets can be shared by immutable approved versions. Only the current public snapshot grants anonymous access.
         const works = await q('work').findMany({ where: { owner: asset.owner, publicationStatus: 'published' } });
@@ -427,7 +440,7 @@ module.exports = ({ strapi }) => {
           const work = await service.publicWork(candidate.key);
           if (!work) continue;
           const row = await q('submission').findOne({ where: { key: work.currentSubmission } });
-          if (row?.payload?.assets.some(a => a.id === key)) return asset.payload;
+          if (row?.payload?.assets.some(a => a.id === key && !(row.payload.submissionType === 'link' && a.kind === 'template'))) return asset.payload;
         }
       }
       v.fail(404, 'Asset not found');
