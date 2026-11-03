@@ -10,6 +10,8 @@ const uniqueError = e => /unique|duplicate/i.test(e.message || '');
 module.exports = ({ strapi }) => {
   const q = name => strapi.db.query(UID(name));
   const store = storage(strapi);
+  const operations = () => strapi.service('api::gallery.creator-operations');
+  const notifications = () => strapi.service('api::gallery.notifications');
   const getProfile = owner => q('profile').findOne({ where: { owner } });
   const getSubmission = async (key, actor) => {
     const row = await q('submission').findOne({ where: { key, ...(actor.canReview ? {} : { owner: actor.owner }) } });
@@ -80,7 +82,7 @@ module.exports = ({ strapi }) => {
       renderUrl = template?.template_link || '';
     }
     try { renderUrl = v.renderUrl(renderUrl); } catch { renderUrl = ''; }
-    return { renderUrl, ...(work ? { isCurrentVersion: work.currentSubmission === row.key } : {}), ...v.draft(p), id: row.key, revision: row.revision, reviewStatus: row.reviewStatus, updatedAt: row.updatedAt,
+    return { emailNotification: await notifications().latest(row.key), renderUrl, ...(work ? { isCurrentVersion: work.currentSubmission === row.key } : {}), ...v.draft(p), id: row.key, revision: row.revision, reviewStatus: row.reviewStatus, updatedAt: row.updatedAt,
       assets: p.assets.map(a => ({ id: a.id, kind: a.kind, name: a.name, size: a.size, url: store.url(a.id) })),
       reviews: p.reviews.map(r => ({ id: r.id, action: r.action, reason: r.reason, reviewer: r.reviewer, createdAt: r.createdAt })),
       ...(work ? { workId: work.key, ...(work.templateDocumentId ? { publicSlug: p.publicSlug || work.key, publicationStatus: work.publicationStatus } : {}) } : {}),
@@ -125,7 +127,7 @@ module.exports = ({ strapi }) => {
     return published.slug;
   };
   const service = {
-    async me(actor) { const p = await getProfile(actor.owner); return { canReview: actor.canReview, needsOnboarding: !p?.payload?.onboardingCompleted, profileHandle: p?.handle || null }; },
+    async me(actor) { const p = await getProfile(actor.owner); return { ...await operations().permissions(actor.owner), needsOnboarding: !p?.payload?.onboardingCompleted, profileHandle: p?.handle || null }; },
     async profile(actor) { return { profile: profileDTO(await getProfile(actor.owner)) }; },
     async saveProfile(actor, input) {
       const payload = v.profile(input); const revision = v.revision(input.revision);
@@ -139,9 +141,10 @@ module.exports = ({ strapi }) => {
             const match = await q('asset').findMany({ where: { owner: actor.owner, scope: `profile:${kind}` } });
             if (!match.some(a => store.url(a.key, false) === url)) v.fail(422, `${kind} must be uploaded by this account`);
           }
-          if (old) return profileDTO(await cas('profile', old, { payload }, revision));
-          if (revision !== 0) v.fail(409, 'Revision conflict');
-          return profileDTO(await q('profile').create({ data: { owner: actor.owner, handle: payload.handle, revision: 1, payload } }));
+          if (!old && revision !== 0) v.fail(409, 'Revision conflict');
+          const saved = old ? await cas('profile', old, { payload }, revision) : await q('profile').create({ data: { owner: actor.owner, handle: payload.handle, revision: 1, payload } });
+          await operations().syncProfile(saved);
+          return profileDTO(saved);
         });
       } catch (error) { if (uniqueError(error)) v.fail(409, 'Handle already in use or concurrent profile update'); throw error; }
     },
@@ -169,6 +172,7 @@ module.exports = ({ strapi }) => {
     },
     async detail(actor, key) { return submissionDTO(await getSubmission(key, actor)); },
     async create(actor, input, key) {
+      await operations().requireSubmission(actor.owner);
       const payload = v.draft(input); if (v.revision(input.revision) !== 0) v.fail(409, 'New draft revision must be zero');
       await ensureOnboarded(actor.owner);
       const result = await withOperation(actor, 'create', key, input, () => newRow(actor.owner, payload));
@@ -183,6 +187,7 @@ module.exports = ({ strapi }) => {
       }));
     },
     async upload(actor, id, input, file, key) {
+      await operations().requireSubmission(actor.owner);
       await ensureOnboarded(actor.owner);
       if (!['cover', 'template', 'screenshot'].includes(input.kind)) v.fail(422, 'Invalid asset kind');
       const revision = v.revision(Number(input.revision));
@@ -215,6 +220,7 @@ module.exports = ({ strapi }) => {
       }));
     },
     async submit(actor, id, input, key) {
+      await operations().requireSubmission(actor.owner);
       await ensureOnboarded(actor.owner);
       const row = await withOperation(actor, `submit:${id}`, key, input, async () => {
         const row = await ownSubmission(id, actor);
@@ -226,7 +232,7 @@ module.exports = ({ strapi }) => {
           const formats = { FineBI: ['.mbi', '.zip'], FineReport: ['.cpt', '.cptx', '.frmx', '.zip'], FineVis: ['.mfvs', '.fvs', '.zip'], FineDataLink: ['.zip'] };
           if (!formats[row.payload.product].includes(asset.payload.ext)) v.fail(422, 'Template file does not match product');
         }
-        return cas('submission', row, { reviewStatus: 'pending', payload: { ...row.payload, reviews: history(row.payload, 'submitted', actor) } }, input.revision);
+        return cas('submission', row, { reviewStatus: 'pending', payload: { ...row.payload, notificationLocale: ['en-us','zh-tw','ko','ko-kr'].includes(input.locale) ? input.locale : row.payload.language, reviews: history(row.payload, 'submitted', actor) } }, input.revision);
       });
       return submissionDTO(row);
     },
@@ -266,15 +272,18 @@ module.exports = ({ strapi }) => {
           }
           slug = await publish(row, work, profile, renderUrl);
         }
-        return q('submission').update({ where: { id: row.id }, data: {
+        const reviewed = await q('submission').update({ where: { id: row.id }, data: {
           reviewStatus: input.action, workKey,
           ...(input.action !== 'changes_requested' ? { activeKey: null } : {}),
           payload: { ...row.payload, ...(input.action === 'approved' ? { renderUrl } : {}), ...(slug ? { publicSlug: slug } : {}), reviews: history(row.payload, input.action, actor, reason) },
         } });
+        await notifications().enqueue(reviewed, input.action, reason, reviewed.payload.reviews.at(-1).createdAt);
+        return reviewed;
       });
       return submissionDTO(result);
     },
     async newRevision(actor, id) {
+      await operations().requireSubmission(actor.owner);
       try {
         return await strapi.db.transaction(async () => {
           const work = await getWork(id, { ...actor, canReview: false });
@@ -311,7 +320,9 @@ module.exports = ({ strapi }) => {
           await docs.update({ documentId: work.templateDocumentId, data: { template_status: 'delisted' } });
         }
         await q('work').update({ where: { id: work.id }, data: { publicationStatus: restore ? 'published' : 'delisted' } });
-        return q('submission').findOne({ where: { id: source.id } });
+        const reviewed = await q('submission').findOne({ where: { id: source.id } });
+        await notifications().enqueue(reviewed, restore ? 'republish' : 'unpublish', reason, reviewed.payload.reviews.at(-1).createdAt);
+        return reviewed;
       }));
     },
     async updateRenderLink(actor, id, input) {
@@ -326,6 +337,16 @@ module.exports = ({ strapi }) => {
         await strapi.documents('api::template.template').update({ documentId: work.templateDocumentId, data: { template_link: renderUrl }, ...(work.publicationStatus === 'published' ? { status: 'published' } : {}) });
         return q('submission').findOne({ where: { id: source.id } });
       }));
+    },
+    async emailStatus(actor, id) {
+      const row = await getSubmission(id, actor);
+      return notifications().latest(row.key);
+    },
+    async retryEmail(actor, id) {
+      if (!actor.canReview) v.fail(403, 'Reviewer required');
+      const row = await getSubmission(id, actor);
+      await notifications().retry(row.key);
+      return submissionDTO(row);
     },
     async portfolio(handle, input) {
       if (typeof handle !== 'string' || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(handle)) v.fail(404, 'Creator not found');
@@ -345,7 +366,7 @@ module.exports = ({ strapi }) => {
       const meta = strapi.db.metadata.get('api::template.template');
       const column = name => meta.attributes[name].columnName;
       const stats = await strapi.db.connection(meta.tableName).where(column('creator_handle'), handle).whereNotNull(column('publishedAt')).where(column('template_status'), 'public').sum({ views: column('viewed') }).count({ total: '*' }).first();
-      return { profile: { ...v.publicProfile(row.payload), joinedAt: row.createdAt, workCount: Number(stats.total) || 0, views: Number(stats.views) || 0 },
+      return { profile: { ...v.publicProfile(row.payload), badges: await operations().publicBadges(row.owner), joinedAt: row.createdAt, workCount: Number(stats.total) || 0, views: Number(stats.views) || 0 },
         works: rows.map(t => ({ id: t.gallery_work_key || t.documentId, documentId: t.documentId, slug: t.slug, title: t.name, product: t.product, coverUrl: t.thumbnail?.url, views: Number(t.viewed) || 0, publishedAt: t.publishedAt, publicationStatus: 'published' })), pagination: { page, totalPages: Math.max(1, Math.ceil(total / limit)), total } };
     },
     async publicWork(key) {

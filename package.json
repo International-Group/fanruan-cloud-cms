@@ -22,13 +22,14 @@
     "better-sqlite3": "11.3.0",
     "fs-extra": "^10.0.0",
     "mime-types": "^2.1.27",
+    "nodemailer": "^10.3.1",
     "pg": "^8.16.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
+    "sharp": "^0.33.5",
     "strapi-plugin-media-library-handler": "^0.1.6",
-    "styled-components": "^6.0.0",
-    "sharp": "^0.33.5"
+    "styled-components": "^6.0.0"
   },
   "engines": {
     "node": ">=18.0.0 <=22.x.x",

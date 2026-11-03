@@ -662,6 +662,111 @@ export interface ApiGalleryAssetGalleryAsset
   };
 }
 
+export interface ApiGalleryContactGalleryContact
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_contacts';
+  info: {
+    displayName: 'gallery-contact';
+    pluralName: 'gallery-contacts';
+    singularName: 'gallery-contact';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.String & Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-contact.gallery-contact'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    verified: Schema.Attribute.Boolean &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<false>;
+  };
+}
+
+export interface ApiGalleryNotificationGalleryNotification
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_notifications';
+  info: {
+    displayName: 'gallery-notification';
+    pluralName: 'gallery-notifications';
+    singularName: 'gallery-notification';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    attempts: Schema.Attribute.Integer &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<0>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    errorCode: Schema.Attribute.String & Schema.Attribute.Private;
+    eventKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    leaseToken: Schema.Attribute.String & Schema.Attribute.Private;
+    leaseUntil: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-notification.gallery-notification'
+    > &
+      Schema.Attribute.Private;
+    nextAttemptAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    payload: Schema.Attribute.JSON & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sentAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    state: Schema.Attribute.Enumeration<
+      ['pending', 'sending', 'sent', 'failed', 'blocked', 'superseded']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<'pending'>;
+    submissionKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiGalleryOperationGalleryOperation
   extends Struct.CollectionTypeSchema {
   collectionName: 'gallery_operations';
@@ -1874,6 +1979,8 @@ declare module '@strapi/strapi' {
       'api::doc-page.doc-page': ApiDocPageDocPage;
       'api::doc.doc': ApiDocDoc;
       'api::gallery-asset.gallery-asset': ApiGalleryAssetGalleryAsset;
+      'api::gallery-contact.gallery-contact': ApiGalleryContactGalleryContact;
+      'api::gallery-notification.gallery-notification': ApiGalleryNotificationGalleryNotification;
       'api::gallery-operation.gallery-operation': ApiGalleryOperationGalleryOperation;
       'api::gallery-profile.gallery-profile': ApiGalleryProfileGalleryProfile;
       'api::gallery-submission.gallery-submission': ApiGallerySubmissionGallerySubmission;

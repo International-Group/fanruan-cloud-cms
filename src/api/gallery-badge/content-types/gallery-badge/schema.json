@@ -1,0 +1,223 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_badges",
+  "info": {
+    "singularName": "gallery-badge",
+    "pluralName": "gallery-badges",
+    "displayName": "Gallery 作者勋章"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 80
+    },
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 64
+    },
+    "nameZhTw": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "nameKo": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 500
+    },
+    "color": {
+      "type": "enumeration",
+      "enum": [
+        "blue",
+        "green",
+        "purple",
+        "gold",
+        "gray"
+      ],
+      "default": "blue",
+      "required": true
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "creators": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::gallery-creator.gallery-creator",
+      "mappedBy": "badges",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_badges_code_uq",
+      "columns": [
+        "code"
+      ],
+      "type": "unique"
+    }
+  ],
+  "config": {
+    "settings": {
+      "bulkable": true,
+      "filterable": true,
+      "searchable": true,
+      "pageSize": 25,
+      "defaultSortBy": "name",
+      "defaultSortOrder": "ASC",
+      "mainField": "name"
+    },
+    "layouts": {
+      "list": [
+        "name",
+        "code",
+        "color",
+        "enabled"
+      ],
+      "edit": [
+        [
+          {
+            "name": "name",
+            "size": 6
+          },
+          {
+            "name": "code",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "nameZhTw",
+            "size": 6
+          },
+          {
+            "name": "nameKo",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "color",
+            "size": 6
+          },
+          {
+            "name": "enabled",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "description",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "creators",
+            "size": 12
+          }
+        ]
+      ]
+    },
+    "metadatas": {
+      "name": {
+        "edit": {
+          "label": "勋章名称 / English",
+          "description": "",
+          "editable": true
+        },
+        "list": {
+          "label": "勋章名称 / English"
+        }
+      },
+      "code": {
+        "edit": {
+          "label": "勋章代码",
+          "description": "使用小写字母、数字和连字号，如 featured-creator。",
+          "editable": true
+        },
+        "list": {
+          "label": "勋章代码"
+        }
+      },
+      "nameZhTw": {
+        "edit": {
+          "label": "繁体中文名称（选填）",
+          "description": "",
+          "editable": true
+        },
+        "list": {
+          "label": "繁体中文名称（选填）"
+        }
+      },
+      "nameKo": {
+        "edit": {
+          "label": "韩文名称（选填）",
+          "description": "",
+          "editable": true
+        },
+        "list": {
+          "label": "韩文名称（选填）"
+        }
+      },
+      "description": {
+        "edit": {
+          "label": "公开说明",
+          "description": "在作者主页中展示，不填写私密运营信息。",
+          "editable": true
+        },
+        "list": {
+          "label": "公开说明"
+        }
+      },
+      "color": {
+        "edit": {
+          "label": "展示颜色",
+          "description": "",
+          "editable": true
+        },
+        "list": {
+          "label": "展示颜色"
+        }
+      },
+      "enabled": {
+        "edit": {
+          "label": "启用展示",
+          "description": "关闭后，该勋章从所有作者主页隐藏。",
+          "editable": true
+        },
+        "list": {
+          "label": "启用展示"
+        }
+      },
+      "creators": {
+        "edit": {
+          "label": "授予作者",
+          "description": "也可在作者详情中选择勋章。",
+          "editable": true
+        },
+        "list": {
+          "label": "授予作者"
+        }
+      }
+    }
+  }
+}

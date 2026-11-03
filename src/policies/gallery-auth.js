@@ -18,8 +18,10 @@ module.exports = async (ctx, config, { strapi }) => {
   const id = user?.uid ?? user?.id;
   if (!['string', 'number'].includes(typeof id) || !String(id).trim() || String(id).length > 200) fail(401, 'Invalid account identity');
   const owner = String(id);
-  const canReview = strapi.config.get('gallery.reviewerIds', []).includes(owner);
+  const { canReview, canSubmit } = await strapi.service('api::gallery.creator-operations').permissions(owner);
   if (config.review && !canReview) fail(403, 'Gallery reviewer permission required');
-  ctx.state.gallery = { owner, canReview, avatar: typeof user.avatar === 'string' ? user.avatar : '', name: user.name || user.username || '' };
+  try { await strapi.service('api::gallery.notifications').syncContact(owner, user); }
+  catch { strapi.log.warn('[Gallery mail] Could not refresh notification contact; existing authentication remains valid.'); }
+  ctx.state.gallery = { owner, canReview, canSubmit, avatar: typeof user.avatar === 'string' ? user.avatar : '', name: user.name || user.username || '' };
   return true;
 };

@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_contacts",
+  "info": {
+    "singularName": "gallery-contact",
+    "pluralName": "gallery-contacts",
+    "displayName": "gallery-contact"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "owner": {
+      "type": "string",
+      "private": true,
+      "required": true,
+      "unique": true
+    },
+    "email": {
+      "type": "string",
+      "private": true
+    },
+    "verified": {
+      "type": "boolean",
+      "private": true,
+      "default": false
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_contacts_owner_uq",
+      "columns": [
+        "owner"
+      ],
+      "type": "unique"
+    }
+  ]
+}
