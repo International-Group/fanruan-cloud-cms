@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_operations",
+  "info": {
+    "singularName": "gallery-operation",
+    "pluralName": "gallery-operations",
+    "displayName": "gallery-operation"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "private": true
+    },
+    "fingerprint": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_operations_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    }
+  ]
+}

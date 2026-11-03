@@ -1,0 +1,76 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_submissions",
+  "info": {
+    "singularName": "gallery-submission",
+    "pluralName": "gallery-submissions",
+    "displayName": "gallery-submission"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "owner": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "revision": {
+      "type": "integer",
+      "required": true
+    },
+    "activeKey": {
+      "type": "string",
+      "unique": true,
+      "private": true
+    },
+    "reviewStatus": {
+      "type": "enumeration",
+      "enum": [
+        "draft",
+        "pending",
+        "changes_requested",
+        "rejected",
+        "approved"
+      ],
+      "required": true
+    },
+    "workKey": {
+      "type": "string",
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_submissions_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    },
+    {
+      "name": "gallery_submissions_active_key_uq",
+      "columns": [
+        "active_key"
+      ],
+      "type": "unique"
+    }
+  ]
+}

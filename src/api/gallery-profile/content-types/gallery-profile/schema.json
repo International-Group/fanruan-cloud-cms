@@ -1,0 +1,57 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_profiles",
+  "info": {
+    "singularName": "gallery-profile",
+    "pluralName": "gallery-profiles",
+    "displayName": "gallery-profile"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "owner": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "private": true
+    },
+    "handle": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "revision": {
+      "type": "integer",
+      "required": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_profiles_owner_uq",
+      "columns": [
+        "owner"
+      ],
+      "type": "unique"
+    },
+    {
+      "name": "gallery_profiles_handle_uq",
+      "columns": [
+        "handle"
+      ],
+      "type": "unique"
+    }
+  ]
+}

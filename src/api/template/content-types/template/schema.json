@@ -189,6 +189,13 @@
           ]
         }
       }
+    },
+    "creator_handle": {
+      "type": "string"
+    },
+    "gallery_work_key": {
+      "type": "string",
+      "private": true
     }
   }
 }

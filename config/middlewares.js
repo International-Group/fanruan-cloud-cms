@@ -2,7 +2,13 @@ module.exports = [
   'global::release-health',
   'strapi::logger',
   'strapi::errors',
-  'strapi::cors',
+  {
+    name: 'strapi::cors',
+    config: {
+      headers: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'Idempotency-Key'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    },
+  },
   'strapi::poweredBy',
   'strapi::query',
   {

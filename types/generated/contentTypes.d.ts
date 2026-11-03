@@ -616,6 +616,238 @@ export interface ApiDocDoc extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiGalleryAssetGalleryAsset
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_assets';
+  info: {
+    displayName: 'gallery-asset';
+    pluralName: 'gallery-assets';
+    singularName: 'gallery-asset';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-asset.gallery-asset'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    payload: Schema.Attribute.JSON & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    scope: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGalleryOperationGalleryOperation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_operations';
+  info: {
+    displayName: 'gallery-operation';
+    pluralName: 'gallery-operations';
+    singularName: 'gallery-operation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fingerprint: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-operation.gallery-operation'
+    > &
+      Schema.Attribute.Private;
+    payload: Schema.Attribute.JSON & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGalleryProfileGalleryProfile
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_profiles';
+  info: {
+    displayName: 'gallery-profile';
+    pluralName: 'gallery-profiles';
+    singularName: 'gallery-profile';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    handle: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-profile.gallery-profile'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    payload: Schema.Attribute.JSON & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    revision: Schema.Attribute.Integer & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGallerySubmissionGallerySubmission
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_submissions';
+  info: {
+    displayName: 'gallery-submission';
+    pluralName: 'gallery-submissions';
+    singularName: 'gallery-submission';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    activeKey: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-submission.gallery-submission'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    payload: Schema.Attribute.JSON & Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    reviewStatus: Schema.Attribute.Enumeration<
+      ['draft', 'pending', 'changes_requested', 'rejected', 'approved']
+    > &
+      Schema.Attribute.Required;
+    revision: Schema.Attribute.Integer & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    workKey: Schema.Attribute.String & Schema.Attribute.Private;
+  };
+}
+
+export interface ApiGalleryWorkGalleryWork extends Struct.CollectionTypeSchema {
+  collectionName: 'gallery_works';
+  info: {
+    displayName: 'gallery-work';
+    pluralName: 'gallery-works';
+    singularName: 'gallery-work';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    currentSubmission: Schema.Attribute.String;
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::gallery-work.gallery-work'
+    > &
+      Schema.Attribute.Private;
+    owner: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    publicationStatus: Schema.Attribute.Enumeration<['published', 'delisted']>;
+    publishedAt: Schema.Attribute.DateTime;
+    revision: Schema.Attribute.Integer & Schema.Attribute.Required;
+    templateDocumentId: Schema.Attribute.String & Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiInsightInsight extends Struct.CollectionTypeSchema {
   collectionName: 'insights';
   info: {
@@ -927,6 +1159,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    creator_handle: Schema.Attribute.String;
     description: Schema.Attribute.RichText;
     download_link: Schema.Attribute.String &
       Schema.Attribute.Required &
@@ -937,6 +1170,7 @@ export interface ApiTemplateTemplate extends Struct.CollectionTypeSchema {
     free: Schema.Attribute.Boolean &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<true>;
+    gallery_work_key: Schema.Attribute.String & Schema.Attribute.Private;
     industry: Schema.Attribute.Enumeration<
       [
         'General Business',
@@ -1639,6 +1873,11 @@ declare module '@strapi/strapi' {
       'api::dictionary.dictionary': ApiDictionaryDictionary;
       'api::doc-page.doc-page': ApiDocPageDocPage;
       'api::doc.doc': ApiDocDoc;
+      'api::gallery-asset.gallery-asset': ApiGalleryAssetGalleryAsset;
+      'api::gallery-operation.gallery-operation': ApiGalleryOperationGalleryOperation;
+      'api::gallery-profile.gallery-profile': ApiGalleryProfileGalleryProfile;
+      'api::gallery-submission.gallery-submission': ApiGallerySubmissionGallerySubmission;
+      'api::gallery-work.gallery-work': ApiGalleryWorkGalleryWork;
       'api::insight.insight': ApiInsightInsight;
       'api::landing.landing': ApiLandingLanding;
       'api::resource.resource': ApiResourceResource;
