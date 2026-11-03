@@ -63,13 +63,17 @@ module.exports = ({ strapi }) => {
     };
     const previous = await read();
     if (previous) return previous;
+    const cleanup = [];
     try {
-      return await strapi.db.transaction(async ({ onRollback }) => {
-        const result = await run({ onRollback });
+      return await strapi.db.transaction(async () => {
+        const result = await run({ onRollback: callback => cleanup.push(callback) });
         await q('operation').create({ data: { key: operationKey, fingerprint: digest, payload: result } });
         return result;
       });
     } catch (error) {
+      // Strapi rollback hooks do not await async callbacks; await storage cleanup here.
+      const removed = await Promise.allSettled(cleanup.map(callback => callback()));
+      if (removed.some(result => result.status === 'rejected')) strapi.log.warn('[Gallery storage] Rollback cleanup failed; unreferenced asset may remain');
       // A concurrent identical request may have won the unique operation key.
       const previous = await read();
       if (previous) return previous;
@@ -107,7 +111,7 @@ module.exports = ({ strapi }) => {
     const p = a.payload;
     return strapi.db.query('plugin::upload.file').create({ data: {
       name: p.name, hash: a.key, ext: p.ext, mime: p.mime, size: p.size / 1000,
-      url: store.url(a.key, false), provider: 'local', provider_metadata: { gallery: true },
+      url: store.url(a.key, false), provider: 'local', provider_metadata: { gallery: true, storage: p.storage?.provider || 'local' },
       ...(p.mime.startsWith('image/') ? { width: p.width, height: p.height } : {}),
     } });
   };
@@ -173,9 +177,9 @@ module.exports = ({ strapi }) => {
       const digest = file && !Array.isArray(file) && await hashFile(file);
       const result = await withOperation(actor, `profile:${kind}`, key, { digest, name: file?.originalFilename }, async ({ onRollback }) => {
         const asset = await store.write(file, kind);
-        onRollback(() => require('node:fs').rmSync(store.filePath(asset.key), { force: true }));
+        onRollback(() => store.remove(asset.key, asset));
         try { await q('asset').create({ data: { key: asset.key, owner: actor.owner, scope: `profile:${kind}`, payload: asset } }); }
-        catch (e) { await store.remove(asset.key); throw e; }
+        catch (e) { await store.remove(asset.key, asset); throw e; }
         return { assetKey: asset.key };
       });
       return { [`${kind}Url`]: store.url(result.assetKey, false) };
@@ -221,7 +225,7 @@ module.exports = ({ strapi }) => {
         await cas('submission', row, {}, revision, null);
         if (input.kind === 'screenshot' && row.payload.assets.filter(a => a.kind === 'screenshot').length >= 5) v.fail(422, 'Maximum five screenshots');
         const asset = await store.write(file, input.kind, row.payload.product);
-        onRollback(() => require('node:fs').rmSync(store.filePath(asset.key), { force: true }));
+        onRollback(() => store.remove(asset.key, asset));
         try {
           await q('asset').create({ data: { key: asset.key, owner: actor.owner, scope: `submission:${id}`, payload: asset } });
           const assets = row.payload.assets.filter(a => input.kind === 'screenshot' || a.kind !== input.kind);
@@ -229,7 +233,7 @@ module.exports = ({ strapi }) => {
           const uploaded = await q('submission').update({ where: { id: row.id }, data: { payload: { ...row.payload, assets } } });
           await versions().record(uploaded, 'asset_uploaded', actor.owner);
           return uploaded;
-        } catch (e) { await store.remove(asset.key); throw e; }
+        } catch (e) { await store.remove(asset.key, asset); throw e; }
       });
       return submissionDTO(result);
     },

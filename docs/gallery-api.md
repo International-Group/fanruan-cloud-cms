@@ -10,13 +10,14 @@
 - `GALLERY_PUBLIC_URL`：浏览器能访问的 CMS 地址，**包含 `/api`**。生产使用 HTTPS，本地支持 `http://localhost:1337/api`。
 - `GALLERY_REVIEWER_IDS`：审核员的稳定账号 uid/id，用逗号分隔。默认空，所有普通账号均无审核权限；不根据邮箱、前端 query 或 CMS API token 授权。
 - `GALLERY_ASSET_SECRET`：至少 32 字符的随机密钥，可使用 `openssl rand -hex 32` 生成。仅用于私有附件限时 URL，不放进前端。
-- `GALLERY_STORAGE_DIR`：私有文件目录，默认 `runtime/gallery-assets`，**必须在 public 之外**。运行用户需要读写权限。备份时同时备份数据库和此目录。
+- `GALLERY_STORAGE_PROVIDER`：开发环境默认 `local`，正式环境可设置 `s3`。S3 模式需明确设置 `GALLERY_S3_BUCKET`，region 默认沿用 `AWS_REGION`，前缀默认 `gallery-private`。
+- `GALLERY_STORAGE_DIR`：仅本地存储或未迁移的旧附件使用，默认 `runtime/gallery-assets`，必须在 public 之外。新 S3 附件不依赖该目录持久化。
 
 前端 `.env.local` 设置 `NEXT_PUBLIC_GALLERY_API_URL=http://localhost:1337/api`，重启 Next.js 后生效。前端通过原有账号服务登录，不使用 CMS 公共 API token。
 
 ### 部署文件持久化
 
-现有部署脚本仅挂载 `public/uploads`，新增私有目录必须另行挂载。例如 Docker 增加 `--mount type=bind,source=/srv/cms/gallery-private,target=/app/runtime/gallery-assets`，并给容器 node 用户读写权限。**不要把私有目录放进 public/uploads**。多实例必须共享同一文件目录和签名密钥。此任务未部署线上服务、未修改线上环境。
+现有部署脚本仅挂载 `public/uploads`。使用本地存储或仍有旧本地附件时，私有目录必须另行挂载；S3 模式且旧附件全部迁移后无需附件磁盘挂载。例如 Docker 增加 `--mount type=bind,source=/srv/cms/gallery-private,target=/app/runtime/gallery-assets`，并给容器 node 用户读写权限。**不要把私有目录放进 public/uploads**。多实例必须共享同一数据库和签名密钥；本地模式还需共享同一文件目录，S3 模式则使用同一私有桶及访问权限。此任务未部署线上服务、未修改线上环境。
 
 当前为保留审核与版本追溯，上传记录和文件不会自动删除。已解绑头像、替换附件、删除草稿后的文件也保留在私有目录；清理时必须核对所有投稿快照及头像引用。签名链接最长有效 15 分钟；下架立即停止匿名永久链接访问，已经签发的私有链接会在到期后失效。
 
@@ -117,7 +118,7 @@ HTTP 集成测试创建临时 Strapi、SQLite、文件目录和测试账号服�
 
 - 点击“保存草稿”后，当前文本与附件引用写入 `gallery_submissions`；尚未保存的输入和待上传文件仍只存在当前浏览器页面中。本次没有自动保存。
 - `gallery_submission_versions` 保留不可变快照，按“投稿标识 + revision”唯一标识。新建、保存、上传/移除附件、提交、撤回、审核、下架/重新上架、更新渲染链接及删除草稿均记录成功提交后的状态；失败事务不留版本，幂等重试不重复留档。
-- 附件以不可变文件引用保存，文件替换或移除不会删除旧快照使用的文件。备份应同时包含数据库与 `GALLERY_STORAGE_DIR`（默认 `runtime/gallery-assets`）。快照本身不保存临时签名 URL，读取历史版本时重新签名。
+- 附件以不可变文件引用保存，文件替换或移除不会删除旧快照使用的文件。备份应同时包含数据库与附件存储（S3 桶对象；或本地 `GALLERY_STORAGE_DIR`）。快照本身不保存临时签名 URL，读取历史版本时重新签名。
 - 新版投稿的 revision 从 1 开始；同一作品的各次投稿会汇总展示，时间和投稿标识区分不同投稿。已删除的新版草稿仍可从该作品其他投稿的历史中查询；独立草稿删除后，仅后台可查看其存档。
 - 前台作品详情新增“已储存版本”：按需展开、分页查看历史、查看只读内容及当时的附件。不执行版本恢复，也不会改变当前草稿或已发布 Template。
 - Strapi Content Manager 新增 **Gallery 投稿与草稿**（当前状态）和 **Gallery 投稿历史版本**（不可变存档）。两者只读；可按作者 UID、投稿标识、状态、版本号等筛选。当前投稿的 key 对应历史记录的 submissionKey。管理员仍通过 Gallery 工作台执行编辑或审核，不能直接改 JSON 绕过校验。
@@ -159,3 +160,54 @@ Gallery 不提供头像设置。编辑资料及首次引导显示账号头像与
 - 两类都使用原提交、撤回、审核、通知和版本接口。首次创建新版投稿时沿用投稿方式及作者链接，清空上一版审核员发布地址。
 - 链接类发布仍生成/更新同一 Template，template_link 为确认后的链接；templateFile 清空、download_link 为 `#`，公开页面只提供在线预览，不显示下载按钮。文件类改为链接类时会清除旧下载引用，旧文件只通过授权的历史/私有签名链接读取，不能继续匿名下载。
 - 切换方式时保留已上传的模板资产引用供后续编辑和历史追溯；链接类不将这些资产作为公开下载资源。新增字段存于既有 JSON payload，不需要模型或数据库结构迁移，旧作品继续按 file 处理。
+
+
+## Gallery 私有 S3 存储（正式环境）
+
+参考 [AWS S3 访问控制](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-management.html)。现有媒体库 provider 默认 public-read，Gallery 不沿用其公开 ACL、CDN 地址或桶默认选择。Gallery 使用明确配置的私有桶：可以复用 AWS 凭据/IAM role，但建议与公开媒体分桶，不能将 Gallery 对象经公开 CloudFront/CDN 源站规则透出。应用会检查桶级四项 Block Public Access 全部开启，否则拒绝上传（检查缓存五分钟）；不会修改桶策略或创建桶。
+
+```env
+GALLERY_STORAGE_PROVIDER=s3
+GALLERY_S3_BUCKET=your-private-gallery-bucket
+# 不填时沿用 AWS_REGION
+GALLERY_S3_REGION=ap-southeast-1
+GALLERY_S3_PREFIX=gallery-private
+# 继续保留原应用签名密钥
+GALLERY_ASSET_SECRET=keep-your-existing-stable-secret
+```
+
+凭据优先使用现有 `AWS_ACCESS_KEY_ID` / `AWS_ACCESS_SECRET`（也支持标准 `AWS_SECRET_ACCESS_KEY`），可带 `AWS_SESSION_TOKEN`；未设置静态凭据时使用 AWS SDK 默认凭据链/IAM role。不需要重新复制一套 Gallery 凭据。仅 Gallery 指定的 bucket 生效，不会默认写入 AWS_BUCKET，避免误用媒体库公开桶。
+
+应用 IAM 至少需要以下权限，将示例桶名替换成实际值；不需要赋予公开读取或修改桶策略权限：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": "s3:GetBucketPublicAccessBlock", "Resource": "arn:aws:s3:::your-private-gallery-bucket" },
+    { "Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::your-private-gallery-bucket/gallery-private/*" }
+  ]
+}
+```
+
+服务端校验图片/模板后写入 S3，使用 SHA-256 校验和，不发送 public-read ACL。处理过程仅使用操作系统临时目录，完成或失败后清理；需临时磁盘空间，不需持久附件目录。数据库 asset payload 保存 provider、bucket、region、objectKey 和 checksum，客户端 DTO 不暴露这些位置。附件 ID 和原有 `/api/gallery/assets/:id` URL 不变；先校验签名/当前公开作品权限，再从 S3 流式读取，不跳转到永久 S3/CDN 地址。因此 GALLERY_ASSET_SECRET 继续用于私有访问，发布/下架规则、历史版本和作者横幅访问方式不变。
+
+普通事务失败会等待清理未引用对象。S3 与数据库不能跨系统原子提交，进程被强制终止时仍可能残留无引用对象；清理必须核对 Gallery 资产记录，不能按短期过期规则删除历史版本文件。运行时记录仍标为 local 的旧文件继续从旧目录读取，不会因切换环境变量而被错误地当成 S3 对象。
+
+### 旧附件迁移
+
+先备份数据库和旧附件目录，停止写入/旧服务，用新的镜像和正式数据库配置执行。Docker 镜像已包含迁移脚本；单独启动运维容器时挂载旧目录（可只读），不要同时启动正常 Strapi。
+
+```sh
+# 只读清单检查：不连接 AWS、不启动 HTTP/worker、不同步 schema、不发送邮件
+node scripts/migrate-gallery-assets-to-s3.js --dry-run
+
+# 先查看清单并备份，再显式指定目标桶执行
+node scripts/migrate-gallery-assets-to-s3.js --apply --bucket your-private-gallery-bucket
+```
+
+迁移脚本直接使用已配置的数据库连接查询 gallery_assets，不加载 Strapi bootstrap。逐个核对本地文件大小、已有 checksum，上传后完整读回并校验字节数/SHA-256，通过后才更新该 asset 的存储位置；不改投稿、版本快照、文件 ID 和 URL。失败项保留原位置，退出码非零；重试会跳过已成功的 S3 记录。本地原文件从不删除。全部 migrated/alreadyS3 且 failed=0，并检查新旧版本访问后，才能撤掉旧目录挂载。
+
+回退旧应用版本前，需要确认该版本支持 S3 asset 元数据；仅保留本地文件不等于旧代码能识别新存储记录。已迁移记录需配合数据库备份制定回退步骤，不要只回退镜像。
+
+验证使用模拟 S3 的实际 SDK 命令和隔离 SQLite，两种存储模式均覆盖完整 HTTP 上传/发布/版本/权限流程，未使用真实 AWS 凭据或修改线上桶。

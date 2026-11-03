@@ -1,6 +1,4 @@
 'use strict';
-const { createReadStream } = require('node:fs');
-const { access } = require('node:fs/promises');
 const { fail } = require('../utils/validation');
 const body = ctx => {
   const value = ctx.request.body;
@@ -46,14 +44,13 @@ module.exports = {
   republish: wrap((ctx, s) => s.visibility(actor(ctx), ctx.params.id, body(ctx), true)),
   asset: wrap(async (ctx, s) => {
     const file = await s.readableAsset(ctx.params.key, ctx.query.expires, ctx.query.signature);
-    const path = s.store.filePath(ctx.params.key);
-    try { await access(path); } catch { ctx.throw(404, 'Asset not found'); }
+    const stream = await s.store.open(ctx.params.key, file);
     ctx.type = file.mime;
     ctx.set('X-Content-Type-Options', 'nosniff');
     ctx.set('Content-Security-Policy', "default-src 'none'; sandbox");
     ctx.set('Content-Length', String(file.size));
     ctx.set('Content-Disposition', `${file.mime.startsWith('image/') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`);
-    ctx.body = createReadStream(path);
+    ctx.body = stream;
   }),
   preview: wrap(async (ctx, s) => {
     const work = await s.publicWork(ctx.params.key);

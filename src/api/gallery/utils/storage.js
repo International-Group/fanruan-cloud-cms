@@ -5,6 +5,8 @@ const { randomUUID, createHmac, timingSafeEqual, createHash } = require('node:cr
 const { createReadStream } = require('node:fs');
 const { fail } = require('./validation');
 const sharp = require('sharp');
+const os = require('node:os');
+const { objectStorage } = require('./object-storage');
 const formats = { FineBI: ['.mbi', '.zip'], FineReport: ['.cpt', '.cptx', '.frmx', '.zip'], FineVis: ['.mfvs', '.fvs', '.zip'], FineDataLink: ['.zip'] };
 const hashFile = async file => { const h = createHash('sha256'); for await (const data of createReadStream(file.filepath)) h.update(data); return h.digest('hex'); };
 // Validate the ZIP central directory without extracting or executing user content.
@@ -37,16 +39,13 @@ async function validateZip(filename, size) {
 }
 function storage(strapi) {
   const cfg = strapi.config.get('gallery');
+  const objects = objectStorage(strapi);
   const base = () => {
     if (!cfg.publicUrl || !cfg.signingSecret || cfg.signingSecret.length < 32) fail(503, 'Gallery URL and asset secret must be configured');
-    const publicDir = path.resolve(strapi.dirs.static.public);
-    const storageDir = path.resolve(cfg.storageDir);
-    if (storageDir === publicDir || storageDir.startsWith(publicDir + path.sep)) fail(503, 'Gallery storage must be outside the public directory');
     const url = new URL(cfg.publicUrl);
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) fail(503, 'Gallery public URL must use HTTPS');
     return cfg.publicUrl.replace(/\/$/, '');
   };
-  const filePath = key => { if (!/^[a-f0-9-]{36}$/.test(key)) fail(404, 'Asset not found'); return path.join(path.resolve(cfg.storageDir), key); };
   const sign = (key, expires) => createHmac('sha256', cfg.signingSecret).update(`${key}:${expires}`).digest('hex');
   return {
     base,
@@ -55,8 +54,7 @@ function storage(strapi) {
       if (!cfg.signingSecret || !/^\d{10}$/.test(String(expires)) || Number(expires) < Date.now() / 1000 || Number(expires) > Date.now() / 1000 + cfg.signedUrlSeconds + 5 || !/^[a-f0-9]{64}$/.test(signature || '')) return false;
       return timingSafeEqual(Buffer.from(sign(key, expires)), Buffer.from(signature));
     },
-    filePath,
-    async remove(key) { await fs.rm(filePath(key), { force: true }); },
+    open: objects.open, remove: objects.remove, migrate: objects.migrate, localPath: objects.localPath,
     async write(file, kind, product) {
       base();
       if (!file || Array.isArray(file) || typeof file.filepath !== 'string') fail(422, 'One file is required');
@@ -64,8 +62,9 @@ function storage(strapi) {
       if (!stat.size || stat.size > (kind === 'template' ? 100 : 5) * 1024 * 1024) fail(422, 'File exceeds size limit');
       const name = path.basename(file.originalFilename || file.name || 'file').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 200);
       const ext = path.extname(name).toLowerCase();
-      const key = randomUUID(); const destination = filePath(key);
-      await fs.mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+      const key = randomUUID();
+      const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'gallery-upload-'));
+      const destination = path.join(temporary, key);
       let mime;
       try {
         if (kind === 'template') {
@@ -91,8 +90,12 @@ function storage(strapi) {
         }
         await fs.chmod(destination, 0o600);
         const dimensions = mime.startsWith('image/') ? await sharp(destination).metadata() : {};
-        return { key, name, width: dimensions.width, height: dimensions.height, size: (await fs.stat(destination)).size, mime, ext: kind === 'template' ? ext : '.webp' };
+        const asset = { key, name, width: dimensions.width, height: dimensions.height, size: (await fs.stat(destination)).size, mime, ext: kind === 'template' ? ext : '.webp' };
+        asset.sha256 = await hashFile({ filepath: destination });
+        asset.storage = await objects.put(key, destination, asset);
+        return asset;
       } catch (e) { await fs.rm(destination, { force: true }); if (e.status) throw e; fail(422, 'Invalid or unreadable file'); }
+      finally { await fs.rm(temporary, { recursive: true, force: true }); }
     },
   };
 }

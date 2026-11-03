@@ -8,7 +8,8 @@ const http = require('node:http');
 const { once } = require('node:events');
 
 // Real Strapi, real isolated SQLite database and private disk. Never load the project's .env or database.
-test('Gallery HTTP lifecycle, authorization, private uploads, publication and version isolation', { timeout: 120000 }, async t => {
+for (const storageProvider of ['local', 's3']) test(`Gallery HTTP lifecycle, authorization, private uploads, publication and version isolation (${storageProvider})`, { timeout: 120000 }, async t => {
+  const remote = storageProvider === 's3' ? require('./helpers/gallery-s3')(t) : null;
   const source = path.resolve(__dirname, '..');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gallery-integration-'));
   for (const name of ['src', 'config']) fs.cpSync(path.join(source, name), path.join(dir, name), { recursive: true });
@@ -32,7 +33,7 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   write('server.js', "module.exports=()=>({host:'127.0.0.1',port:0,app:{keys:['gallery-test-key-a','gallery-test-key-b']}});");
   write('admin.js', "module.exports=()=>({serveAdminPanel:false,auth:{secret:'test-admin-secret'},apiToken:{salt:'test-api-salt'},transfer:{token:{salt:'test-transfer-salt'}},secrets:{encryptionKey:'test-encryption-key'}});");
   write('plugins.js', "module.exports=()=>({cloud:{enabled:false},upload:{config:{provider:'local'}},'users-permissions':{config:{jwtSecret:'test-jwt-secret'}}});");
-  write('gallery.js', `module.exports=()=>({accountApiUrl:'http://127.0.0.1:${account.address().port}',publicUrl:'http://127.0.0.1:1337/api',reviewerIds:['reviewer'],storageDir:${JSON.stringify(path.join(dir, 'private'))},signingSecret:'integration-test-asset-secret-at-least-32-chars',signedUrlSeconds:900,siteUrl:'https://gallery.example.test',mail:{enabled:false,intervalMs:3600000,maxAttempts:8}});`);
+  write('gallery.js', `module.exports=()=>({storageProvider:${JSON.stringify(storageProvider)},s3:{bucket:'gallery-private-test',region:'test-region-1',prefix:'gallery-private',accessKeyId:'test-key',secretAccessKey:'test-secret'},accountApiUrl:'http://127.0.0.1:${account.address().port}',publicUrl:'http://127.0.0.1:1337/api',reviewerIds:['reviewer'],storageDir:${JSON.stringify(path.join(dir, 'private'))},signingSecret:'integration-test-asset-secret-at-least-32-chars',signedUrlSeconds:900,siteUrl:'https://gallery.example.test',mail:{enabled:false,intervalMs:3600000,maxAttempts:8}});`);
   const { createStrapi } = require('@strapi/strapi');
   const app = createStrapi({ appDir: dir, distDir: dir, autoReload: false });
   t.after(async () => {
@@ -440,6 +441,22 @@ test('Gallery HTTP lifecycle, authorization, private uploads, publication and ve
   // The older cover snapshot remains available to its owner; full file snapshots are retained as well.
   assert.ok(oldVersionFiles.snapshot.assets.length > 0);
   assert.equal((await fetch((await call(`/gallery/submissions/${converted.id}`)).assets.find(a => a.kind === 'template').url)).status, 200);
+  if (remote) {
+    const persistedAsset = await app.db.query('api::gallery-asset.gallery-asset').findOne({ where: { key: cover.id } });
+    assert.equal(persistedAsset.payload.storage.provider, 's3');
+    assert.equal(fs.existsSync(path.join(dir, 'private', cover.id)), false);
+    assert.ok(!JSON.stringify(await call(`/gallery/submissions/${s.id}`)).includes('gallery-private-test'), 'client DTOs must not expose bucket locations');
+    const objectCount = remote.objects.size;
+    const current = await call(`/gallery/submissions/${baselineDraft.id}`);
+    const assetRepository = app.db.query('api::gallery-asset.gallery-asset');
+    const originalCreate = assetRepository.create;
+    assetRepository.create = async () => { throw new Error('Simulated database failure after S3 upload'); };
+    try {
+      await call(`/gallery/submissions/${baselineDraft.id}/assets`, { method: 'POST', body: onlineUpload('cover', 'rollback.png', png, current.revision), key: 's3-rollback', status: 500 });
+    } finally { assetRepository.create = originalCreate; }
+    assert.equal(remote.objects.size, objectCount, 'database rollback must await S3 object cleanup');
+    assert.equal((await call(`/gallery/submissions/${baselineDraft.id}`)).revision, current.revision);
+  }
   // Generic CRUD endpoints for all private models must not exist.
   for (const name of ['profiles', 'submissions', 'assets', 'operations', 'works', 'contacts', 'notifications', 'creators', 'badges']) await call(`/gallery-${name}`, { user: null, status: 404 });
 });
