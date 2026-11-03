@@ -7,7 +7,8 @@ test('startup starts the queue without importing examples or modifying setup sto
   const originalStart = queue.start;
   const previousStrapi = global.strapi;
   const originalEnvironment = process.env.NODE_ENV;
-  const runtime = { store() { assert.fail('Server startup must not initialize example data'); } };
+  let mailStarted = false, authorsInitialized = false, versionsInitialized = false;
+  const runtime = { service(uid) { if (uid === 'api::gallery.versions') return { async initialize() { versionsInitialized = true; } }; if (uid === 'api::gallery.creator-operations') return { async initialize() { authorsInitialized = true; } }; assert.equal(uid, 'api::gallery.notifications'); return { start() { mailStarted = true; } }; }, store() { assert.fail('Server startup must not initialize example data'); } };
   let startedWith;
   queue.start = value => { startedWith = value; };
   global.strapi = runtime;
@@ -15,6 +16,9 @@ test('startup starts the queue without importing examples or modifying setup sto
   try {
     await app.bootstrap({ strapi: runtime });
     assert.equal(startedWith, runtime);
+    assert.equal(mailStarted, true);
+    assert.equal(authorsInitialized, true);
+    assert.equal(versionsInitialized, true);
   } finally {
     queue.start = originalStart;
     if (previousStrapi === undefined) delete global.strapi;

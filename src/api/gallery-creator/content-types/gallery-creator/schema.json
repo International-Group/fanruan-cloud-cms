@@ -1,0 +1,279 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_creators",
+  "info": {
+    "singularName": "gallery-creator",
+    "pluralName": "gallery-creators",
+    "displayName": "Gallery 作者运营"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "displayName": {
+      "type": "string",
+      "private": true
+    },
+    "accountUid": {
+      "type": "string",
+      "private": true,
+      "required": true,
+      "unique": true
+    },
+    "handle": {
+      "type": "string",
+      "private": true
+    },
+    "country": {
+      "type": "string",
+      "private": true
+    },
+    "job": {
+      "type": "string",
+      "private": true
+    },
+    "organization": {
+      "type": "string",
+      "private": true
+    },
+    "canSubmit": {
+      "type": "boolean",
+      "private": true,
+      "default": true,
+      "required": true
+    },
+    "canReview": {
+      "type": "boolean",
+      "private": true,
+      "default": false,
+      "required": true
+    },
+    "badges": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::gallery-badge.gallery-badge",
+      "inversedBy": "creators",
+      "private": true
+    },
+    "internalTags": {
+      "type": "string",
+      "private": true
+    },
+    "internalNotes": {
+      "type": "text",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_creators_account_uid_uq",
+      "columns": [
+        "account_uid"
+      ],
+      "type": "unique"
+    }
+  ],
+  "config": {
+    "settings": {
+      "bulkable": true,
+      "filterable": true,
+      "searchable": true,
+      "pageSize": 25,
+      "defaultSortBy": "createdAt",
+      "defaultSortOrder": "DESC",
+      "mainField": "displayName"
+    },
+    "layouts": {
+      "list": [
+        "displayName",
+        "accountUid",
+        "handle",
+        "canSubmit",
+        "canReview",
+        "badges"
+      ],
+      "edit": [
+        [
+          {
+            "name": "accountUid",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "displayName",
+            "size": 6
+          },
+          {
+            "name": "handle",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "country",
+            "size": 6
+          },
+          {
+            "name": "job",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "organization",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "canSubmit",
+            "size": 6
+          },
+          {
+            "name": "canReview",
+            "size": 6
+          }
+        ],
+        [
+          {
+            "name": "badges",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "internalTags",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "internalNotes",
+            "size": 12
+          }
+        ]
+      ]
+    },
+    "metadatas": {
+      "displayName": {
+        "edit": {
+          "label": "作者名称",
+          "description": "从作者公开资料同步，不改变作者主页。",
+          "editable": false
+        },
+        "list": {
+          "label": "作者名称"
+        }
+      },
+      "accountUid": {
+        "edit": {
+          "label": "统一账号 UID",
+          "description": "绑定统一账号 UID；创建后不可更改。",
+          "editable": true
+        },
+        "list": {
+          "label": "统一账号 UID"
+        }
+      },
+      "handle": {
+        "edit": {
+          "label": "主页标识",
+          "description": "从作者公开资料同步。",
+          "editable": false
+        },
+        "list": {
+          "label": "主页标识"
+        }
+      },
+      "country": {
+        "edit": {
+          "label": "国家 / 地区",
+          "description": "从作者资料同步；公开可见性仍由作者设置。",
+          "editable": false
+        },
+        "list": {
+          "label": "国家 / 地区"
+        }
+      },
+      "job": {
+        "edit": {
+          "label": "职业",
+          "description": "从作者资料同步。",
+          "editable": false
+        },
+        "list": {
+          "label": "职业"
+        }
+      },
+      "organization": {
+        "edit": {
+          "label": "组织",
+          "description": "从作者资料同步。",
+          "editable": false
+        },
+        "list": {
+          "label": "组织"
+        }
+      },
+      "canSubmit": {
+        "edit": {
+          "label": "允许投稿",
+          "description": "关闭后禁止新建作品、上传文件和提交审核；已公开作品不会自动下架。",
+          "editable": true
+        },
+        "list": {
+          "label": "允许投稿"
+        }
+      },
+      "canReview": {
+        "edit": {
+          "label": "允许审核作品",
+          "description": "开启后可访问 Gallery 审核工作台并处理其他作者的投稿。",
+          "editable": true
+        },
+        "list": {
+          "label": "允许审核作品"
+        }
+      },
+      "badges": {
+        "edit": {
+          "label": "作者勋章",
+          "description": "只影响公开展示，不赋予任何权限。",
+          "editable": true
+        },
+        "list": {
+          "label": "作者勋章"
+        }
+      },
+      "internalTags": {
+        "edit": {
+          "label": "内部标签",
+          "description": "供运营筛选，可用逗号分隔；不向用户公开。",
+          "editable": true
+        },
+        "list": {
+          "label": "内部标签"
+        }
+      },
+      "internalNotes": {
+        "edit": {
+          "label": "运营备注",
+          "description": "仅供 Strapi 运营人员查看，不向用户公开。",
+          "editable": true
+        },
+        "list": {
+          "label": "运营备注"
+        }
+      }
+    }
+  }
+}

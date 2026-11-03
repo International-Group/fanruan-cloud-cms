@@ -11,6 +11,8 @@ module.exports = {
    */
   register({ strapi }) {
     strapi.documents.use(createSlugHistoryMiddleware(strapi));
+    strapi.documents.use((context, next) => strapi.service('api::gallery.creator-operations').middleware(context, next));
+    strapi.documents.use((context, next) => strapi.service('api::gallery.versions').middleware(context, next));
   },
 
   /**
@@ -22,10 +24,14 @@ module.exports = {
    */
   async bootstrap({ strapi }) {
     // Example content is initialized explicitly with scripts/seed.js, never on server startup.
+    await strapi.service('api::gallery.creator-operations').initialize();
+    await strapi.service('api::gallery.versions').initialize();
     userBehaviorQueue.start(strapi);
+    strapi.service('api::gallery.notifications').start();
   },
 
-  async destroy() {
+  async destroy({ strapi }) {
+    await strapi.service('api::gallery.notifications').stop();
     await userBehaviorQueue.stop();
   },
 };

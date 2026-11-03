@@ -56,3 +56,10 @@ python3 -m unittest discover -s deploy/tests
 发布前从镜像提取已构建的 JS、CSS 和字体，以内容校验方式追加到 `/var/lib/fanruan-cloud-cms/assets/admin`，不运行 Strapi、不覆盖已有文件。Nginx 优先提供这些资源，缺失时转发给当前 CMS，保留已打开页面所需的旧 chunk；管理入口 HTML、认证接口及内容 API 仍由当前 CMS 响应。发布检查同时核对 JS/CSS 的 Content-Type，拒绝将 HTML 回退页误判为成功。
 
 首次安装后执行 `python3 deploy/scripts/install-assets.py --operator-key ~/.ssh/id_rsa`，为旧版资源建档并安装 Nginx 静态路由；此操作不重启 CMS。该操作在部署锁内更新经过审阅的控制器和配置，并在 Nginx 检查失败时恢复原配置；不重新初始化运行状态。
+
+
+## Gallery 附件存储
+
+Gallery 生产环境支持独立私有 S3 桶。设置 GALLERY_STORAGE_PROVIDER=s3、GALLERY_S3_BUCKET，region 复用 AWS_REGION；凭据复用现有 AWS_ACCESS_KEY_ID / AWS_ACCESS_SECRET 或 IAM role。桶必须开启四项 Block Public Access，IAM 需 GetBucketPublicAccessBlock 及指定对象前缀的 GetObject/PutObject/DeleteObject。不要套用公开媒体的 public-read 或 CDN 全路径规则。GALLERY_ASSET_SECRET 仍需稳定配置。
+
+旧 local 资产迁移完成前，仍需挂载旧 GALLERY_STORAGE_DIR；全部 S3 后无需附件持久化磁盘。镜像已包含 scripts/migrate-gallery-assets-to-s3.js，可用单独运维容器先执行 --dry-run，再备份并用 --apply --bucket 指定桶；脚本不启动服务或发邮件，验证远端字节后才更新 asset 记录，不删除本地原文件。详见 docs/gallery-api.md。

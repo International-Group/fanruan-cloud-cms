@@ -1,0 +1,103 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_notifications",
+  "info": {
+    "singularName": "gallery-notification",
+    "pluralName": "gallery-notifications",
+    "displayName": "gallery-notification"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "eventKey": {
+      "type": "string",
+      "private": true,
+      "required": true,
+      "unique": true
+    },
+    "owner": {
+      "type": "string",
+      "private": true,
+      "required": true
+    },
+    "submissionKey": {
+      "type": "string",
+      "private": true,
+      "required": true
+    },
+    "state": {
+      "type": "enumeration",
+      "private": true,
+      "enum": [
+        "pending",
+        "sending",
+        "sent",
+        "failed",
+        "blocked",
+        "superseded"
+      ],
+      "default": "pending",
+      "required": true
+    },
+    "attempts": {
+      "type": "integer",
+      "private": true,
+      "default": 0
+    },
+    "nextAttemptAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "leaseUntil": {
+      "type": "datetime",
+      "private": true
+    },
+    "leaseToken": {
+      "type": "string",
+      "private": true
+    },
+    "sentAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "errorCode": {
+      "type": "string",
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_notifications_event_uq",
+      "columns": [
+        "event_key"
+      ],
+      "type": "unique"
+    },
+    {
+      "name": "gallery_notifications_due_idx",
+      "columns": [
+        "state",
+        "next_attempt_at"
+      ]
+    },
+    {
+      "name": "gallery_notifications_submission_idx",
+      "columns": [
+        "submission_key"
+      ]
+    }
+  ]
+}

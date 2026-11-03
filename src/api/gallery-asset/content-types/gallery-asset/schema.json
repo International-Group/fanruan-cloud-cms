@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_assets",
+  "info": {
+    "singularName": "gallery-asset",
+    "pluralName": "gallery-assets",
+    "displayName": "gallery-asset"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "owner": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "scope": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_assets_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    }
+  ]
+}

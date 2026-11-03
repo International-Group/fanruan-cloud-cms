@@ -1,0 +1,205 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_submissions",
+  "info": {
+    "singularName": "gallery-submission",
+    "pluralName": "gallery-submissions",
+    "displayName": "Gallery 投稿与草稿"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "owner": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "revision": {
+      "type": "integer",
+      "required": true
+    },
+    "activeKey": {
+      "type": "string",
+      "unique": true,
+      "private": true
+    },
+    "reviewStatus": {
+      "type": "enumeration",
+      "enum": [
+        "draft",
+        "pending",
+        "changes_requested",
+        "rejected",
+        "approved"
+      ],
+      "required": true
+    },
+    "workKey": {
+      "type": "string",
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_submissions_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    },
+    {
+      "name": "gallery_submissions_active_key_uq",
+      "columns": [
+        "active_key"
+      ],
+      "type": "unique"
+    }
+  ],
+  "config": {
+    "settings": {
+      "bulkable": false,
+      "filterable": true,
+      "searchable": true,
+      "pageSize": 25,
+      "defaultSortBy": "createdAt",
+      "defaultSortOrder": "DESC",
+      "mainField": "key"
+    },
+    "layouts": {
+      "list": [
+        "key",
+        "owner",
+        "reviewStatus",
+        "revision",
+        "updatedAt"
+      ],
+      "edit": [
+        [
+          {
+            "name": "owner",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "key",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "revision",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "activeKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "reviewStatus",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "workKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "payload",
+            "size": 12
+          }
+        ]
+      ]
+    },
+    "metadatas": {
+      "owner": {
+        "edit": {
+          "label": "作者 UID",
+          "editable": false
+        },
+        "list": {
+          "label": "作者 UID"
+        }
+      },
+      "key": {
+        "edit": {
+          "label": "版本标识",
+          "editable": false
+        },
+        "list": {
+          "label": "版本标识"
+        }
+      },
+      "revision": {
+        "edit": {
+          "label": "版本号",
+          "editable": false
+        },
+        "list": {
+          "label": "版本号"
+        }
+      },
+      "activeKey": {
+        "edit": {
+          "label": "当前编辑标识",
+          "editable": false
+        },
+        "list": {
+          "label": "当前编辑标识"
+        }
+      },
+      "reviewStatus": {
+        "edit": {
+          "label": "审核状态",
+          "editable": false
+        },
+        "list": {
+          "label": "审核状态"
+        }
+      },
+      "workKey": {
+        "edit": {
+          "label": "作品标识",
+          "editable": false
+        },
+        "list": {
+          "label": "作品标识"
+        }
+      },
+      "payload": {
+        "edit": {
+          "label": "当前内容（含附件引用）",
+          "editable": false
+        },
+        "list": {
+          "label": "当前内容（含附件引用）"
+        }
+      }
+    }
+  }
+}

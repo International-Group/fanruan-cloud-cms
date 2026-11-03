@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_works",
+  "info": {
+    "singularName": "gallery-work",
+    "pluralName": "gallery-works",
+    "displayName": "gallery-work"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "owner": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "revision": {
+      "type": "integer",
+      "required": true
+    },
+    "templateDocumentId": {
+      "type": "string",
+      "unique": true
+    },
+    "currentSubmission": {
+      "type": "string"
+    },
+    "publicationStatus": {
+      "type": "enumeration",
+      "enum": [
+        "published",
+        "delisted"
+      ]
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_works_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    },
+    {
+      "name": "gallery_works_template_document_id_uq",
+      "columns": [
+        "template_document_id"
+      ],
+      "type": "unique"
+    }
+  ]
+}

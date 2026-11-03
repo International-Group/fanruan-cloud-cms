@@ -1,0 +1,213 @@
+# Gallery 后端接入
+
+实现目录：`src/api/gallery`；接口前缀 `/api`。直接匹配 Gallery 前端现有 `lib/gallery/submissions.ts`、`creators.ts` 的契约。收藏和账号信息仍由账号服务处理，不在 CMS 重建第二套收藏/账号系统。
+
+## 配置
+
+将 `.env.gallery.example` 中的配置合并到部署环境（不要覆盖已有 Strapi 密钥）。
+
+- `GALLERY_ACCOUNT_API_URL`：现有账号服务基础地址。认证策略将 Bearer 令牌发送到该地址的 `GET /user/profile`，使用响应的 `uid`（否则 `id`）确定所有者。只接受成功的服务端验证，不从未验证 JWT 或请求体取身份；401 由前端原有刷新逻辑处理。该地址必须由运维固定配置。
+- `GALLERY_PUBLIC_URL`：浏览器能访问的 CMS 地址，**包含 `/api`**。生产使用 HTTPS，本地支持 `http://localhost:1337/api`。
+- `GALLERY_REVIEWER_IDS`：审核员的稳定账号 uid/id，用逗号分隔。默认空，所有普通账号均无审核权限；不根据邮箱、前端 query 或 CMS API token 授权。
+- `GALLERY_ASSET_SECRET`：至少 32 字符的随机密钥，可使用 `openssl rand -hex 32` 生成。仅用于私有附件限时 URL，不放进前端。
+- `GALLERY_STORAGE_PROVIDER`：开发环境默认 `local`，正式环境可设置 `s3`。S3 模式需明确设置 `GALLERY_S3_BUCKET`，region 默认沿用 `AWS_REGION`，前缀默认 `gallery-private`。
+- `GALLERY_STORAGE_DIR`：仅本地存储或未迁移的旧附件使用，默认 `runtime/gallery-assets`，必须在 public 之外。新 S3 附件不依赖该目录持久化。
+
+前端 `.env.local` 设置 `NEXT_PUBLIC_GALLERY_API_URL=http://localhost:1337/api`，重启 Next.js 后生效。前端通过原有账号服务登录，不使用 CMS 公共 API token。
+
+### 部署文件持久化
+
+现有部署脚本仅挂载 `public/uploads`。使用本地存储或仍有旧本地附件时，私有目录必须另行挂载；S3 模式且旧附件全部迁移后无需附件磁盘挂载。例如 Docker 增加 `--mount type=bind,source=/srv/cms/gallery-private,target=/app/runtime/gallery-assets`，并给容器 node 用户读写权限。**不要把私有目录放进 public/uploads**。多实例必须共享同一数据库和签名密钥；本地模式还需共享同一文件目录，S3 模式则使用同一私有桶及访问权限。此任务未部署线上服务、未修改线上环境。
+
+当前为保留审核与版本追溯，上传记录和文件不会自动删除。已解绑头像、替换附件、删除草稿后的文件也保留在私有目录；清理时必须核对所有投稿快照及头像引用。签名链接最长有效 15 分钟；下架立即停止匿名永久链接访问，已经签发的私有链接会在到期后失效。
+
+## 接口
+
+所有 JSON 成功响应为 `{ data: ... }`；删除成功为 204。失败使用 Strapi 标准 `{ data: null, error: ... }`，区分 401、403、404、409、422、503。私人接口返回 `Cache-Control: private, no-store`。
+
+| 方法 | 路径（不含 `/api`） | 说明 |
+| --- | --- | --- |
+| GET | `/gallery/me` | canReview / needsOnboarding / profileHandle |
+| GET / PUT | `/gallery/profile/me` | 读取本人完整资料 / 带 revision 保存 |
+| POST | `/gallery/profile/banner` | multipart `file`，带 Idempotency-Key；暂存图片，不提前完成资料 |
+| GET | `/gallery/creators/:handle` | 匿名公开资料、已发布作品、分页；product、sort=newest/popular、page、limit |
+| GET / POST | `/gallery/submissions` | 本人分页列表 / 创建草稿，创建带 Idempotency-Key、revision=0 |
+| GET / PATCH / DELETE | `/gallery/submissions/:id` | 本人详情 / 更新可编辑版本 / 删除草稿；写操作带 revision |
+| POST | `/gallery/submissions/:id/assets` | multipart file、kind、revision，带 Idempotency-Key |
+| DELETE | `/gallery/submissions/:id/assets/:assetId` | 删除可编辑快照的附件引用，带 revision |
+| POST | `/gallery/submissions/:id/submit` | 带 revision、Idempotency-Key，校验后送审 |
+| POST | `/gallery/submissions/:id/withdraw` | 带 revision，撤回待审核版本为草稿 |
+| POST | `/gallery/works/:id/revisions` | 为本人作品创建更新草稿，已有活动版本时返回已有版本 |
+| GET | `/admin/gallery/submissions`、`/admin/gallery/submissions/:id` | 审核员列表 / 详情 |
+| POST | `/admin/gallery/submissions/:id/review` | action=approved/changes_requested/rejected、reason、revision；approved 另必填 renderUrl，带 Idempotency-Key |
+| POST | `/admin/gallery/works/:id/unpublish`、`republish` | reason、revision，下架/恢复当前已批准版本 |
+| PATCH | `/admin/gallery/works/:id/render-link` | 审核员修正当前已通过版本的渲染地址，renderUrl、submissionId、revision；保持现有上下架状态 |
+| GET | `/gallery/assets/:key` | 私有签名访问，或当前公开作品/已绑定公开横幅的匿名访问 |
+| GET | `/gallery/works/:key/preview` | 当前公开作品的封面和截图预览 |
+
+列表支持 `page`、`limit`（最多 100），投稿列表另支持 `status`。批量审核仅提供退回修改和拒绝；批准发布须逐件填写并检查对应渲染连结。
+
+## 数据与发布
+
+新增五个隐藏业务模型：gallery-profile、gallery-submission、gallery-work、gallery-asset、gallery-operation。没有通用 CRUD 路由；owner、私有快照等字段标记 private。数据库唯一索引保证账号资料、公开 handle、幂等键及同一作品最多一个活动更新版本。
+
+写操作采用 revision 比较更新，冲突返回 409。幂等键按账号和操作路径隔离，同键不同参数返回 409。审核操作与 Template 发布放在同一数据库事务，失败会回滚审核状态、发布结果、媒体记录和幂等记录，可用原键重试。实现依照 [Strapi 5 数据库事务约定](https://docs-v5.strapi.io/cms/database-transactions)。
+
+外部投稿发布时固定 source=Competition，description 保存可读 Unicode 原文。Gallery 的三个作品详情入口对带 creator_handle 的作者简介使用 React 纯文本渲染，不交给 MDX 编译；内部编辑内容继续沿用原有 MDX 路径。
+
+批准作品时创建/更新现有 Template，写入 thumbnail、templateFile、SEO、下载地址及作者 handle。Template 继续使用现有生命周期与 slug 历史逻辑。新增 `creator_handle` 提供前端作者链接；`gallery_work_key` 为内部关联。更新作品发布时沿用原 Template documentId，保留收藏关联；待审或被拒绝的更新不替换公开版本。公开作者资料使用白名单输出，不包含 goals、账号信息、审核记录、隐藏国家及关闭联系入口时的 contactUrl。
+
+批准前必须填写真实部署后的公开 HTTPS 渲染页面，后端拒绝缺失地址、Gallery 图片预览、图片/附件直链、本机地址及带帐号密码的 URL。`template_link` 写入审核员提供的地址，不再自动填入 `/gallery/works/:key/preview`。新版本不能沿用旧版未确认的地址。当前已通过版本支持修改地址，旧版本不可覆盖当前版本；下架作品修改地址不会自动上架，恢复发布也必须有有效地址。审核记录保留变更动作。
+
+旧的 `/gallery/works/:key/preview` 只为兼容已有作品保留封面/截图展示，不是渲染服务。已有发布数据不会自动下架或批量改写；审核员应逐件补上真实连结。CMS 不执行模板，不请求任意用户网址；URL 校验只检查格式和已知占位地址，审核员须实际检查可运行与可嵌入性。FineBI/FineReport/FineVis 的部署仍在对应产品环境完成。
+
+模板文件按产品扩展名、100 MB 上限及 ZIP 结构/XML 文件头验证；不会执行或解压上传内容。封面/截图/横幅 PNG/JPEG/WebP 最大 5 MB，经解码重新编码为 WebP，截图最多五张。
+
+## 验证
+
+使用项目支持的 Node 20/22：
+
+```sh
+npm run test:gallery
+npm test
+```
+
+HTTP 集成测试创建临时 Strapi、SQLite、文件目录和测试账号服务，启动前断言应用目录/数据库目录都在临时目录，并禁止读取项目 `.env`。验证身份与归属、资料唯一地址、图片归属、私有文件访问、上传校验、revision 竞争、幂等、审核反馈、发布失败回滚、公开白名单、更新版本与上下架。
+
+
+## 修复旧投稿元数据（本地）
+
+使用 `node scripts/repair-gallery-template-metadata.js --sqlite /absolute/path/data/database.db` 预览；追加 `--apply` 才会应用。命令强制核对 SQLite 路径，并在应用前备份至 `runtime/gallery-backups`。修复仅针对 gallery_work_key 对应当前已批准投稿的 Template 记录（草稿和公开版分别处理），固定 source=Competition；仅当旧简介严格等于原投稿经旧字符实体编码后的结果时还原原文，不覆盖 CMS 中额外编辑的简介。条件更新防止并发覆盖，整个修复在数据库事务中执行，不改变作品上下架状态或渲染链接。
+
+
+## 审核结果邮件
+
+批准发布、退回修改、拒绝、下架及恢复发布时，在相同数据库事务中新增私有邮件 outbox 记录。SMTP 发送由后台 worker 处理，约每 30 秒扫描一次，不在审核请求中发信。发送失败不会撤销审核结果；数据库事务失败时也不会留下待发送的虚假审核结果。
+
+配置：`GALLERY_MAIL_ENABLED=true`，填写 `GALLERY_MAIL_HOST/PORT/SECURE/USER/PASS/FROM`，可复用统一账号服务 SMTP。`GALLERY_SITE_URL` 为邮件中作品链接的 Gallery 前端根地址，本地为 `http://localhost:3000`，生产部署时须改为实际站点 HTTPS 地址。465 使用隐式 TLS，587 使用强制 STARTTLS；不关闭证书校验。参考 [Nodemailer SMTP 配置](https://nodemailer.com/smtp)。密钥只保留在后端环境，不放入前端或日志。
+
+收件地址只从账号服务成功验证的 `/user/profile` 响应同步至隐藏 gallery-contact 模型，并要求 emailVerified=true。前端和审核员不能指定、覆盖收件人。未验证邮箱或旧投稿尚无联系资料时，通知保留为 blocked，创作者使用已验证邮箱登录 Gallery 后会自动恢复。账号令牌不持久保存。公开作者主页和投稿 DTO 不包含邮箱。
+
+新增隐藏 gallery-notification 模型保存事件快照、发送状态、租约和重试时间，没有通用 CRUD 路由。使用审核记录 ID 作为唯一事件键，幂等审核重放不重复入队；发送租约防止多实例同时处理同一任务，崩溃后的过期租约可以恢复。每轮最多自动尝试 8 次，1 分钟起指数退避、最长间隔 6 小时。之前尚未发送的同一投稿旧结果会被新结果取代。SMTP 在“服务端已经接受，但客户端未记录成功”的断连窗口下仍可能重复投递，使用固定 Message-ID 降低重复影响；不能承诺 SMTP 严格 exactly-once。
+
+`Submission.emailNotification` 包含最新通知的 status、action、attempts、sentAt、nextAttemptAt、errorCode，不返回邮箱或 SMTP 错误详情。作者和审核员可通过各自权限范围的 `GET /gallery/submissions/:id/notifications`、`GET /admin/gallery/submissions/:id/notifications` 刷新状态。审核员可调用 `POST /admin/gallery/submissions/:id/notifications/retry` 重试 failed/blocked 通知，sent/pending/sending 不允许重复重试。页面每 15 秒轻量刷新状态，不重新加载或清空编辑表单。
+
+通知从接入后的后续审核操作开始产生，不批量补发历史审核。邮件以作者送审时的页面语言为优先，支持英文、繁体中文和韩文，包含作品名称、处理结果、原因、处理时间和站内链接；不包含私人附件或临时下载链接。后台不记录邮箱、SMTP 密码或原始 SMTP 响应。
+
+测试使用隔离 SQLite、模拟邮件传输和 Nodemailer JSON transport，不连接真实 SMTP，也不投递真实邮件；覆盖事务回滚、幂等重放、发送失败及手动重试、邮箱验证保护、多 worker 竞争、崩溃租约恢复和 HTML/邮件头注入保护。
+
+
+## Strapi 作者运营
+
+在 Content Manager 中使用 **Gallery 作者运营** 和 **Gallery 作者勋章** 两个集合。原来的 Author 集合继续用于文章作者，不与 Gallery 统一账号混用。已有 Gallery 公开资料的作者会在启动时回填，新作者保存资料时自动收录；原环境审核员名单也会迁移为后台可管理的账号记录。账号 UID 是稳定绑定，创建后不可改；名称、主页标识、国家/地区、职业、组织从作者资料同步。为没有公开主页的审核员，可在作者运营集合手动填入统一账号 UID 创建权限记录。
+
+作者字段：
+
+- **允许投稿 canSubmit**：默认开启。关闭后，新建草稿、作品文件上传、送审和创建更新版本都由后端拒绝；本人仍可查看作品/反馈、修改个人资料及已有草稿文字。已公开作品不会自动下架。
+- **允许审核作品 canReview**：默认关闭；开启后可访问 Gallery 审核工作台、处理审核、上下架、修改渲染地址、重试邮件。后台记录存在时以此字段为准，关闭后不会被旧 GALLERY_REVIEWER_IDS 配置重新开启。环境名单只用于首次迁移/尚无运营记录的兼容引导。
+- **作者勋章 badges**：多选，纯展示。名称支持默认语言、繁体中文和韩文，颜色为限定枚举。关闭勋章 enabled 后会从所有公开主页隐藏，不删除授予关系。勋章不授予投稿、审核或 CMS 权限。
+- **内部标签和运营备注**：仅后台使用，不进入公开作者接口。
+
+作者运营/勋章模型没有通用 Content API 路由，统一账号用户不能给自己改权限或发勋章；资料保存只同步身份字段，不重置运营设置。Content Manager 的操作仍由 Strapi 管理员及其 RBAC 角色控制；需要后台运营权限的同事应在 Strapi 管理员角色中获得这两个集合对应的读写权限。为避免权限重置，不删除作者运营记录，使用权限开关停用相应能力。
+
+公开作者响应只新增白名单 badges 数组（code/name/nameZhTw/nameKo/description/color），不返回 UID、权限、内部备注、标签或勋章反向作者关系。普通账号提交伪造 badges/canReview/canSubmit 字段不会改变后台设置。
+
+本地初始化：`node scripts/init-gallery-creators.js --apply --sqlite /absolute/path/data/database.db`。先备份，再创建/回填运营记录和三个未授予的示例勋章；不监听 HTTP 端口，不发送通知邮件，也不重置已有权限或授予状态。正常启动只同步作者及兼容旧审核员，不重新创建被运营人员移除的示例勋章。
+
+## 草稿持久化与历史版本
+
+- 点击“保存草稿”后，当前文本与附件引用写入 `gallery_submissions`；尚未保存的输入和待上传文件仍只存在当前浏览器页面中。本次没有自动保存。
+- `gallery_submission_versions` 保留不可变快照，按“投稿标识 + revision”唯一标识。新建、保存、上传/移除附件、提交、撤回、审核、下架/重新上架、更新渲染链接及删除草稿均记录成功提交后的状态；失败事务不留版本，幂等重试不重复留档。
+- 附件以不可变文件引用保存，文件替换或移除不会删除旧快照使用的文件。备份应同时包含数据库与附件存储（S3 桶对象；或本地 `GALLERY_STORAGE_DIR`）。快照本身不保存临时签名 URL，读取历史版本时重新签名。
+- 新版投稿的 revision 从 1 开始；同一作品的各次投稿会汇总展示，时间和投稿标识区分不同投稿。已删除的新版草稿仍可从该作品其他投稿的历史中查询；独立草稿删除后，仅后台可查看其存档。
+- 前台作品详情新增“已储存版本”：按需展开、分页查看历史、查看只读内容及当时的附件。不执行版本恢复，也不会改变当前草稿或已发布 Template。
+- Strapi Content Manager 新增 **Gallery 投稿与草稿**（当前状态）和 **Gallery 投稿历史版本**（不可变存档）。两者只读；可按作者 UID、投稿标识、状态、版本号等筛选。当前投稿的 key 对应历史记录的 submissionKey。管理员仍通过 Gallery 工作台执行编辑或审核，不能直接改 JSON 绕过校验。
+- CMS 管理角色需要由超级管理员分配这两个 collection 的读取权限；普通统一账号不能调用 CMS 模型 CRUD。作者只能查自己的历史，审核员通过 `/admin/gallery` 路径查询。
+
+接口（均需统一账号 Bearer token，响应 `{ data }`）：
+
+- `GET /api/gallery/submissions/:id/versions?page=1&limit=20`：`{ items: [{id,submissionId,revision,title,reviewStatus,action,savedAt}], pagination }`。
+- `GET /api/gallery/submissions/:id/versions/:versionId`：`{id,submissionId,revision,reviewStatus,action,savedAt,snapshot}`。snapshot 为草稿字段、当时的渲染链接与签名附件列表。
+- 审核员对应接口使用 `/api/admin/gallery/submissions/:id/versions[/:versionId]`。
+
+首次启动会为已有投稿补录当前状态为 `baseline`，不会覆盖已留存版本。此前未记录且被覆盖的内容无法重建。初始化本地数据库前停止开发服务，使用对应项目 Node 20：
+
+```sh
+node scripts/init-gallery-versions.js --apply --sqlite /absolute/path/to/data/database.db
+```
+
+脚本先备份选定的本地 SQLite，再同步模型、补录版本，最后退出；不监听 HTTP、不发送审核邮件。数据库迁移期间应保持开发服务关闭。
+
+
+## 头像由统一账号管理
+
+Gallery 不提供头像设置。编辑资料及首次引导显示账号头像与“前往账号管理修改头像”链接，指向配置的账号中心 `/?tab=account`，新分頁开启以保留未保存的 Gallery 表单。横幅仍在 Gallery 编辑。没有账号头像时显示默认占位，不阻止保存。
+
+- `POST /gallery/profile/avatar` 已停用，鉴权后返回 410；服务层也禁止 avatar 上传。
+- `PUT /gallery/profile/me` 忽略客户端 avatarUrl，只接受本次统一账号 `/user/profile` 校验返回的头像；不能通过旧表单或任意 URL 覆盖。
+- `GET /gallery/profile/me` 在原 profile 之外返回最新 `avatarUrl`；`GET /gallery/me` 也返回它。
+- 每次已登录 Gallery 请求会同步该账号的头像缓存；不递增作者资料 revision，避免与未保存的资料冲突。公开作者主页使用同步后的缓存，因此更新需作者返回 Gallery 或下次发起已登录请求；没有账号头像时会清除旧的 Gallery 头像引用。
+- 编辑页返回焦点时仅刷新头像，不覆盖未保存的昵称、简介、横幅选择等字段；本人作者主页也在返回时刷新头像。
+- 旧 Gallery 头像文件不主动删除，但不再通过“已绑定公开头像”规则授予匿名访问。既有临时签名链接仍在有效期内可读。备份/清理遵循附件保留策略。
+
+## 两种投稿方式
+
+投稿 payload 新增 `submissionType: "file" | "link"`（旧数据/新建请求省略时默认 file）和 `submittedRenderUrl`（作者填写的链接）。这两个字段属于草稿内容，进入历史快照；`renderUrl` 仍由审核员控制，作者不能用草稿保存直接修改已发布地址。旧客户端 PATCH 省略新字段时会保留原值。
+
+- **file**：按产品上传模板文件（支持 FineVis 的 `.mfvs`/`.fvs`、FineBI 的 `.mbi`，同时保留现有产品格式），封面和模板文件必填；审核员部署后填写公开 HTTPS 渲染页再批准。
+- **link**：作者填写公开 HTTPS 渲染页，无需模板文件；封面、基础信息及版权确认仍必填，截图可选。草稿可保存未完成的 URL，但提交和批准必须通过与文件类最终地址一致的 URL 校验。链接类拒绝新增 template 附件。
+- 审核详情自动将作者链接预填到发布地址。审核员需打开检查内容、可访问性与 iframe 嵌入效果，可修正地址或退回；不会自动批准。链接类批准 API 可省略 renderUrl，此时使用作者地址；显式传入地址则使用审核员确认的值，同时保留作者原始地址。
+- 两类都使用原提交、撤回、审核、通知和版本接口。首次创建新版投稿时沿用投稿方式及作者链接，清空上一版审核员发布地址。
+- 链接类发布仍生成/更新同一 Template，template_link 为确认后的链接；templateFile 清空、download_link 为 `#`，公开页面只提供在线预览，不显示下载按钮。文件类改为链接类时会清除旧下载引用，旧文件只通过授权的历史/私有签名链接读取，不能继续匿名下载。
+- 切换方式时保留已上传的模板资产引用供后续编辑和历史追溯；链接类不将这些资产作为公开下载资源。新增字段存于既有 JSON payload，不需要模型或数据库结构迁移，旧作品继续按 file 处理。
+
+
+## Gallery 私有 S3 存储（正式环境）
+
+参考 [AWS S3 访问控制](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-management.html)。现有媒体库 provider 默认 public-read，Gallery 不沿用其公开 ACL、CDN 地址或桶默认选择。Gallery 使用明确配置的私有桶：可以复用 AWS 凭据/IAM role，但建议与公开媒体分桶，不能将 Gallery 对象经公开 CloudFront/CDN 源站规则透出。应用会检查桶级四项 Block Public Access 全部开启，否则拒绝上传（检查缓存五分钟）；不会修改桶策略或创建桶。
+
+```env
+GALLERY_STORAGE_PROVIDER=s3
+GALLERY_S3_BUCKET=your-private-gallery-bucket
+# 不填时沿用 AWS_REGION
+GALLERY_S3_REGION=ap-southeast-1
+GALLERY_S3_PREFIX=gallery-private
+# 继续保留原应用签名密钥
+GALLERY_ASSET_SECRET=keep-your-existing-stable-secret
+```
+
+凭据优先使用现有 `AWS_ACCESS_KEY_ID` / `AWS_ACCESS_SECRET`（也支持标准 `AWS_SECRET_ACCESS_KEY`），可带 `AWS_SESSION_TOKEN`；未设置静态凭据时使用 AWS SDK 默认凭据链/IAM role。不需要重新复制一套 Gallery 凭据。仅 Gallery 指定的 bucket 生效，不会默认写入 AWS_BUCKET，避免误用媒体库公开桶。
+
+应用 IAM 至少需要以下权限，将示例桶名替换成实际值；不需要赋予公开读取或修改桶策略权限：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": "s3:GetBucketPublicAccessBlock", "Resource": "arn:aws:s3:::your-private-gallery-bucket" },
+    { "Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"], "Resource": "arn:aws:s3:::your-private-gallery-bucket/gallery-private/*" }
+  ]
+}
+```
+
+服务端校验图片/模板后写入 S3，使用 SHA-256 校验和，不发送 public-read ACL。处理过程仅使用操作系统临时目录，完成或失败后清理；需临时磁盘空间，不需持久附件目录。数据库 asset payload 保存 provider、bucket、region、objectKey 和 checksum，客户端 DTO 不暴露这些位置。附件 ID 和原有 `/api/gallery/assets/:id` URL 不变；先校验签名/当前公开作品权限，再从 S3 流式读取，不跳转到永久 S3/CDN 地址。因此 GALLERY_ASSET_SECRET 继续用于私有访问，发布/下架规则、历史版本和作者横幅访问方式不变。
+
+普通事务失败会等待清理未引用对象。S3 与数据库不能跨系统原子提交，进程被强制终止时仍可能残留无引用对象；清理必须核对 Gallery 资产记录，不能按短期过期规则删除历史版本文件。运行时记录仍标为 local 的旧文件继续从旧目录读取，不会因切换环境变量而被错误地当成 S3 对象。
+
+### 旧附件迁移
+
+先备份数据库和旧附件目录，停止写入/旧服务，用新的镜像和正式数据库配置执行。Docker 镜像已包含迁移脚本；单独启动运维容器时挂载旧目录（可只读），不要同时启动正常 Strapi。
+
+```sh
+# 只读清单检查：不连接 AWS、不启动 HTTP/worker、不同步 schema、不发送邮件
+node scripts/migrate-gallery-assets-to-s3.js --dry-run
+
+# 先查看清单并备份，再显式指定目标桶执行
+node scripts/migrate-gallery-assets-to-s3.js --apply --bucket your-private-gallery-bucket
+```
+
+迁移脚本直接使用已配置的数据库连接查询 gallery_assets，不加载 Strapi bootstrap。逐个核对本地文件大小、已有 checksum，上传后完整读回并校验字节数/SHA-256，通过后才更新该 asset 的存储位置；不改投稿、版本快照、文件 ID 和 URL。失败项保留原位置，退出码非零；重试会跳过已成功的 S3 记录。本地原文件从不删除。全部 migrated/alreadyS3 且 failed=0，并检查新旧版本访问后，才能撤掉旧目录挂载。
+
+回退旧应用版本前，需要确认该版本支持 S3 asset 元数据；仅保留本地文件不等于旧代码能识别新存储记录。已迁移记录需配合数据库备份制定回退步骤，不要只回退镜像。
+
+验证使用模拟 S3 的实际 SDK 命令和隔离 SQLite，两种存储模式均覆盖完整 HTTP 上传/发布/版本/权限流程，未使用真实 AWS 凭据或修改线上桶。

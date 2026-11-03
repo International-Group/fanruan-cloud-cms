@@ -26,6 +26,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json /app/.release.json ./
 COPY --from=build --chown=node:node /app/config ./config
 COPY --from=build --chown=node:node /app/src ./src
+COPY --from=build --chown=node:node /app/scripts ./scripts
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/build ./build
 COPY --from=build --chown=node:node /app/deploy/runtime ./deploy/runtime
