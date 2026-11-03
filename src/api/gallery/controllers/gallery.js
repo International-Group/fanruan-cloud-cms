@@ -28,6 +28,8 @@ module.exports = {
   portfolio: wrap((ctx, s) => s.portfolio(ctx.params.handle, ctx.query)),
   list: wrap((ctx, s) => s.list(actor(ctx), ctx.query)),
   detail: wrap((ctx, s) => s.detail(actor(ctx), ctx.params.id)),
+  versions: wrap((ctx, s) => s.versions(actor(ctx), ctx.params.id, ctx.query)),
+  version: wrap((ctx, s) => s.version(actor(ctx), ctx.params.id, ctx.params.versionId)),
   create: wrap(async (ctx, s) => { const result = await s.create(actor(ctx), body(ctx), ctx.get('Idempotency-Key')); ctx.status = 201; return result; }),
   update: wrap((ctx, s) => s.update(actor(ctx), ctx.params.id, body(ctx))),
   remove: wrap(async (ctx, s) => { await s.remove(actor(ctx), ctx.params.id, body(ctx)); ctx.status = 204; }),

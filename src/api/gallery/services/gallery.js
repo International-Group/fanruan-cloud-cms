@@ -11,6 +11,7 @@ module.exports = ({ strapi }) => {
   const q = name => strapi.db.query(UID(name));
   const store = storage(strapi);
   const operations = () => strapi.service('api::gallery.creator-operations');
+  const versions = () => strapi.service('api::gallery.versions');
   const notifications = () => strapi.service('api::gallery.notifications');
   const getProfile = owner => q('profile').findOne({ where: { owner } });
   const getSubmission = async (key, actor) => {
@@ -27,11 +28,14 @@ module.exports = ({ strapi }) => {
     if (!row) v.fail(404, 'Work not found');
     return row;
   };
-  const cas = async (type, row, data, expected = row.revision) => {
+  const cas = async (type, row, data, expected = row.revision, action = 'saved', actorUid = row.owner) => {
     if (v.revision(expected) !== row.revision) v.fail(409, 'Revision conflict; reload and retry');
+    if (type === 'submission') await versions().record(row, 'baseline');
     const result = await q(type).updateMany({ where: { id: row.id, revision: expected }, data: { ...data, revision: expected + 1 } });
     if (result.count !== 1) v.fail(409, 'Revision conflict; reload and retry');
-    return q(type).findOne({ where: { id: row.id } });
+    const updated = await q(type).findOne({ where: { id: row.id } });
+    if (type === 'submission' && action) await versions().record(updated, action, actorUid);
+    return updated;
   };
   const withOperation = async (actor, scope, key, fingerprint, run) => {
     if (typeof key !== 'string' || !key.trim() || key.length > 200) v.fail(422, 'Idempotency-Key is required (max 200 characters)');
@@ -92,7 +96,11 @@ module.exports = ({ strapi }) => {
   const touchWork = row => cas('work', row, {});
   const history = (payload, action, actor, reason = '') => [...payload.reviews, { id: randomUUID(), action, reason, reviewer: actor.canReview ? 'Gallery team' : 'Creator', createdAt: now() }];
   const assetRecord = async key => { const row = await q('asset').findOne({ where: { key } }); if (!row) v.fail(404, 'Asset not found'); return row; };
-  const newRow = async (owner, payload, workKey = null) => q('submission').create({ data: { owner, key: randomUUID(), revision: 1, reviewStatus: 'draft', workKey, activeKey: workKey, payload: { ...payload, renderUrl: '', assets: payload.assets || [], reviews: [] } } });
+  const newRow = async (owner, payload, workKey = null) => {
+    const row = await q('submission').create({ data: { owner, key: randomUUID(), revision: 1, reviewStatus: 'draft', workKey, activeKey: workKey, payload: { ...payload, renderUrl: '', assets: payload.assets || [], reviews: [] } } });
+    await versions().record(row, workKey ? 'new_revision' : 'created', owner);
+    return row;
+  };
   const media = async asset => {
     const a = await assetRecord(asset.id);
     const p = a.payload;
@@ -197,7 +205,7 @@ module.exports = ({ strapi }) => {
         const row = await ownSubmission(id, actor);
         if (!editable(row)) v.fail(409, 'Submission is not editable');
         // Claim the row before file IO. Transaction rollback restores it on any failure.
-        await cas('submission', row, {}, revision);
+        await cas('submission', row, {}, revision, null);
         if (input.kind === 'screenshot' && row.payload.assets.filter(a => a.kind === 'screenshot').length >= 5) v.fail(422, 'Maximum five screenshots');
         const asset = await store.write(file, input.kind, row.payload.product);
         onRollback(() => require('node:fs').rmSync(store.filePath(asset.key), { force: true }));
@@ -205,7 +213,9 @@ module.exports = ({ strapi }) => {
           await q('asset').create({ data: { key: asset.key, owner: actor.owner, scope: `submission:${id}`, payload: asset } });
           const assets = row.payload.assets.filter(a => input.kind === 'screenshot' || a.kind !== input.kind);
           assets.push({ id: asset.key, kind: input.kind, name: asset.name, size: asset.size });
-          return await q('submission').update({ where: { id: row.id }, data: { payload: { ...row.payload, assets } } });
+          const uploaded = await q('submission').update({ where: { id: row.id }, data: { payload: { ...row.payload, assets } } });
+          await versions().record(uploaded, 'asset_uploaded', actor.owner);
+          return uploaded;
         } catch (e) { await store.remove(asset.key); throw e; }
       });
       return submissionDTO(result);
@@ -216,7 +226,7 @@ module.exports = ({ strapi }) => {
         if (!editable(row)) v.fail(409, 'Submission is not editable');
         if (!row.payload.assets.some(a => a.id === assetId)) v.fail(404, 'Asset not found');
         // Keep immutable asset records for previous published versions and in-flight signed URLs.
-        return cas('submission', row, { payload: { ...row.payload, assets: row.payload.assets.filter(a => a.id !== assetId) } }, input.revision);
+        return cas('submission', row, { payload: { ...row.payload, assets: row.payload.assets.filter(a => a.id !== assetId) } }, input.revision, 'asset_removed');
       }));
     },
     async submit(actor, id, input, key) {
@@ -232,7 +242,7 @@ module.exports = ({ strapi }) => {
           const formats = { FineBI: ['.mbi', '.zip'], FineReport: ['.cpt', '.cptx', '.frmx', '.zip'], FineVis: ['.mfvs', '.fvs', '.zip'], FineDataLink: ['.zip'] };
           if (!formats[row.payload.product].includes(asset.payload.ext)) v.fail(422, 'Template file does not match product');
         }
-        return cas('submission', row, { reviewStatus: 'pending', payload: { ...row.payload, notificationLocale: ['en-us','zh-tw','ko','ko-kr'].includes(input.locale) ? input.locale : row.payload.language, reviews: history(row.payload, 'submitted', actor) } }, input.revision);
+        return cas('submission', row, { reviewStatus: 'pending', payload: { ...row.payload, notificationLocale: ['en-us','zh-tw','ko','ko-kr'].includes(input.locale) ? input.locale : row.payload.language, reviews: history(row.payload, 'submitted', actor) } }, input.revision, 'submitted');
       });
       return submissionDTO(row);
     },
@@ -240,14 +250,14 @@ module.exports = ({ strapi }) => {
       return submissionDTO(await strapi.db.transaction(async () => {
         const row = await ownSubmission(id, actor);
         if (row.reviewStatus !== 'pending') v.fail(409, 'Only pending submissions can be withdrawn');
-        return cas('submission', row, { reviewStatus: 'draft', payload: { ...row.payload, reviews: history(row.payload, 'withdrawn', actor) } }, input.revision);
+        return cas('submission', row, { reviewStatus: 'draft', payload: { ...row.payload, reviews: history(row.payload, 'withdrawn', actor) } }, input.revision, 'withdrawn');
       }));
     },
     async remove(actor, id, input) {
       await strapi.db.transaction(async () => {
         const row = await ownSubmission(id, actor);
         if (row.reviewStatus !== 'draft') v.fail(409, 'Only drafts can be deleted');
-        await cas('submission', row, {}, input.revision);
+        await cas('submission', row, {}, input.revision, 'deleted');
         await q('submission').delete({ where: { id: row.id } });
       });
     },
@@ -259,7 +269,7 @@ module.exports = ({ strapi }) => {
       const result = await withOperation(actor, `review:${id}`, key, input, async () => {
         const row = await getSubmission(id, actor);
         if (row.reviewStatus !== 'pending') v.fail(409, 'Only pending submissions can be reviewed');
-        await cas('submission', row, {}, input.revision);
+        await cas('submission', row, {}, input.revision, null);
         let workKey = row.workKey; let slug = row.payload.publicSlug;
         if (input.action === 'approved') {
           const profile = await ensureOnboarded(row.owner);
@@ -277,6 +287,7 @@ module.exports = ({ strapi }) => {
           ...(input.action !== 'changes_requested' ? { activeKey: null } : {}),
           payload: { ...row.payload, ...(input.action === 'approved' ? { renderUrl } : {}), ...(slug ? { publicSlug: slug } : {}), reviews: history(row.payload, input.action, actor, reason) },
         } });
+        await versions().record(reviewed, `review_${input.action}`, actor.owner);
         await notifications().enqueue(reviewed, input.action, reason, reviewed.payload.reviews.at(-1).createdAt);
         return reviewed;
       });
@@ -308,7 +319,7 @@ module.exports = ({ strapi }) => {
         const source = await getSubmission(work.currentSubmission, actor);
         if (!work.templateDocumentId || work.publicationStatus !== (restore ? 'delisted' : 'published')) v.fail(409, 'Work visibility conflict');
         // Frontend sends the selected submission revision. Reject stale historical versions.
-        await cas('submission', source, { payload: { ...source.payload, reviews: history(source.payload, restore ? 'republish' : 'unpublish', actor, reason) } }, input.revision);
+        await cas('submission', source, { payload: { ...source.payload, reviews: history(source.payload, restore ? 'republish' : 'unpublish', actor, reason) } }, input.revision, restore ? 'republished' : 'unpublished', actor.owner);
         await touchWork(work);
         const docs = strapi.documents('api::template.template');
         if (restore) {
@@ -332,11 +343,38 @@ module.exports = ({ strapi }) => {
         const work = await getWork(id, actor);
         const source = await getSubmission(work.currentSubmission, actor);
         if (!work.templateDocumentId || source.reviewStatus !== 'approved' || input.submissionId !== source.key) v.fail(409, 'Only the current approved version can change its rendering URL');
-        await cas('submission', source, { payload: { ...source.payload, renderUrl, reviews: history(source.payload, 'render_link_updated', actor, 'Rendering URL updated') } }, input.revision);
+        await cas('submission', source, { payload: { ...source.payload, renderUrl, reviews: history(source.payload, 'render_link_updated', actor, 'Rendering URL updated') } }, input.revision, 'render_link_updated', actor.owner);
         await touchWork(work);
         await strapi.documents('api::template.template').update({ documentId: work.templateDocumentId, data: { template_link: renderUrl }, ...(work.publicationStatus === 'published' ? { status: 'published' } : {}) });
         return q('submission').findOne({ where: { id: source.id } });
       }));
+    },
+    async versions(actor, id, input) {
+      const row = await getSubmission(id, actor);
+      const siblings = row.workKey ? await q('submission').findMany({ where: { owner: row.owner, workKey: row.workKey }, select: ['key'] }) : [row];
+      const where = { owner: row.owner, ...(row.workKey ? { $or: [{ submissionKey: { $in: siblings.map(s => s.key) } }, { workKey: row.workKey }] } : { submissionKey: row.key }) };
+      const page = v.page(input.page, 1, 100000); const limit = v.page(input.limit, 20, 100); const start = (page - 1) * limit;
+      const [rows, total] = await Promise.all([
+        q('submission-version').findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], offset: start, limit }),
+        q('submission-version').count({ where }),
+      ]);
+      return { items: rows.map(r => ({ id: r.key, submissionId: r.submissionKey, revision: r.revision, title: r.title,
+        reviewStatus: r.reviewStatus, action: r.action, savedAt: r.savedAt })),
+        pagination: { page, totalPages: Math.max(1, Math.ceil(total / limit)), total } };
+    },
+    async version(actor, id, versionKey) {
+      const row = await getSubmission(id, actor);
+      const version = await q('submission-version').findOne({ where: { key: versionKey, owner: row.owner } });
+      if (!version) v.fail(404, 'Version not found');
+      if (version.submissionKey !== row.key && !(row.workKey && version.workKey === row.workKey)) {
+        const sibling = row.workKey && await q('submission').findOne({ where: { key: version.submissionKey, owner: row.owner, workKey: row.workKey } });
+        if (!sibling) v.fail(404, 'Version not found');
+      }
+      let renderUrl = ''; try { renderUrl = v.renderUrl(version.payload.renderUrl); } catch { /* A draft may have no rendering URL. */ }
+      return { id: version.key, submissionId: version.submissionKey, revision: version.revision,
+        action: version.action, reviewStatus: version.reviewStatus, savedAt: version.savedAt,
+        snapshot: { ...v.draft(version.payload), renderUrl,
+          assets: version.payload.assets.map(a => ({ id: a.id, kind: a.kind, name: a.name, size: a.size, url: store.url(a.id) })) } };
     },
     async emailStatus(actor, id) {
       const row = await getSubmission(id, actor);

@@ -4,14 +4,14 @@
   "info": {
     "singularName": "gallery-submission",
     "pluralName": "gallery-submissions",
-    "displayName": "gallery-submission"
+    "displayName": "Gallery 投稿与草稿"
   },
   "options": {
     "draftAndPublish": false
   },
   "pluginOptions": {
     "content-manager": {
-      "visible": false
+      "visible": true
     },
     "content-type-builder": {
       "visible": false
@@ -72,5 +72,134 @@
       ],
       "type": "unique"
     }
-  ]
+  ],
+  "config": {
+    "settings": {
+      "bulkable": false,
+      "filterable": true,
+      "searchable": true,
+      "pageSize": 25,
+      "defaultSortBy": "createdAt",
+      "defaultSortOrder": "DESC",
+      "mainField": "key"
+    },
+    "layouts": {
+      "list": [
+        "key",
+        "owner",
+        "reviewStatus",
+        "revision",
+        "updatedAt"
+      ],
+      "edit": [
+        [
+          {
+            "name": "owner",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "key",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "revision",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "activeKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "reviewStatus",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "workKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "payload",
+            "size": 12
+          }
+        ]
+      ]
+    },
+    "metadatas": {
+      "owner": {
+        "edit": {
+          "label": "作者 UID",
+          "editable": false
+        },
+        "list": {
+          "label": "作者 UID"
+        }
+      },
+      "key": {
+        "edit": {
+          "label": "版本标识",
+          "editable": false
+        },
+        "list": {
+          "label": "版本标识"
+        }
+      },
+      "revision": {
+        "edit": {
+          "label": "版本号",
+          "editable": false
+        },
+        "list": {
+          "label": "版本号"
+        }
+      },
+      "activeKey": {
+        "edit": {
+          "label": "当前编辑标识",
+          "editable": false
+        },
+        "list": {
+          "label": "当前编辑标识"
+        }
+      },
+      "reviewStatus": {
+        "edit": {
+          "label": "审核状态",
+          "editable": false
+        },
+        "list": {
+          "label": "审核状态"
+        }
+      },
+      "workKey": {
+        "edit": {
+          "label": "作品标识",
+          "editable": false
+        },
+        "list": {
+          "label": "作品标识"
+        }
+      },
+      "payload": {
+        "edit": {
+          "label": "当前内容（含附件引用）",
+          "editable": false
+        },
+        "list": {
+          "label": "当前内容（含附件引用）"
+        }
+      }
+    }
+  }
 }

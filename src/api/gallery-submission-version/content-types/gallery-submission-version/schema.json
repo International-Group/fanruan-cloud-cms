@@ -1,0 +1,274 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gallery_submission_versions",
+  "info": {
+    "singularName": "gallery-submission-version",
+    "pluralName": "gallery-submission-versions",
+    "displayName": "Gallery 投稿历史版本"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "private": true
+    },
+    "submissionKey": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "owner": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "workKey": {
+      "type": "string",
+      "private": true
+    },
+    "title": {
+      "type": "string",
+      "private": true
+    },
+    "revision": {
+      "type": "integer",
+      "required": true,
+      "private": true
+    },
+    "action": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "actorUid": {
+      "type": "string",
+      "private": true
+    },
+    "reviewStatus": {
+      "type": "string",
+      "required": true,
+      "private": true
+    },
+    "payload": {
+      "type": "json",
+      "required": true,
+      "private": true
+    },
+    "savedAt": {
+      "type": "datetime",
+      "required": true,
+      "private": true
+    }
+  },
+  "indexes": [
+    {
+      "name": "gallery_submission_versions_key_uq",
+      "columns": [
+        "key"
+      ],
+      "type": "unique"
+    }
+  ],
+  "config": {
+    "settings": {
+      "bulkable": false,
+      "filterable": true,
+      "searchable": true,
+      "pageSize": 25,
+      "defaultSortBy": "createdAt",
+      "defaultSortOrder": "DESC",
+      "mainField": "title"
+    },
+    "layouts": {
+      "list": [
+        "title",
+        "owner",
+        "submissionKey",
+        "revision",
+        "action",
+        "savedAt"
+      ],
+      "edit": [
+        [
+          {
+            "name": "key",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "submissionKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "owner",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "workKey",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "title",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "revision",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "action",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "actorUid",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "reviewStatus",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "payload",
+            "size": 12
+          }
+        ],
+        [
+          {
+            "name": "savedAt",
+            "size": 12
+          }
+        ]
+      ]
+    },
+    "metadatas": {
+      "key": {
+        "edit": {
+          "label": "版本标识",
+          "editable": false
+        },
+        "list": {
+          "label": "版本标识"
+        }
+      },
+      "submissionKey": {
+        "edit": {
+          "label": "投稿标识",
+          "editable": false
+        },
+        "list": {
+          "label": "投稿标识"
+        }
+      },
+      "owner": {
+        "edit": {
+          "label": "作者 UID",
+          "editable": false
+        },
+        "list": {
+          "label": "作者 UID"
+        }
+      },
+      "workKey": {
+        "edit": {
+          "label": "作品标识",
+          "editable": false
+        },
+        "list": {
+          "label": "作品标识"
+        }
+      },
+      "title": {
+        "edit": {
+          "label": "作品标题",
+          "editable": false
+        },
+        "list": {
+          "label": "作品标题"
+        }
+      },
+      "revision": {
+        "edit": {
+          "label": "版本号",
+          "editable": false
+        },
+        "list": {
+          "label": "版本号"
+        }
+      },
+      "action": {
+        "edit": {
+          "label": "操作",
+          "editable": false
+        },
+        "list": {
+          "label": "操作"
+        }
+      },
+      "actorUid": {
+        "edit": {
+          "label": "操作人 UID",
+          "editable": false
+        },
+        "list": {
+          "label": "操作人 UID"
+        }
+      },
+      "reviewStatus": {
+        "edit": {
+          "label": "审核状态",
+          "editable": false
+        },
+        "list": {
+          "label": "审核状态"
+        }
+      },
+      "payload": {
+        "edit": {
+          "label": "版本内容（含附件引用）",
+          "editable": false
+        },
+        "list": {
+          "label": "版本内容（含附件引用）"
+        }
+      },
+      "savedAt": {
+        "edit": {
+          "label": "保存时间",
+          "editable": false
+        },
+        "list": {
+          "label": "保存时间"
+        }
+      }
+    }
+  }
+}

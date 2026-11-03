@@ -112,3 +112,27 @@ HTTP 集成测试创建临时 Strapi、SQLite、文件目录和测试账号服�
 公开作者响应只新增白名单 badges 数组（code/name/nameZhTw/nameKo/description/color），不返回 UID、权限、内部备注、标签或勋章反向作者关系。普通账号提交伪造 badges/canReview/canSubmit 字段不会改变后台设置。
 
 本地初始化：`node scripts/init-gallery-creators.js --apply --sqlite /absolute/path/data/database.db`。先备份，再创建/回填运营记录和三个未授予的示例勋章；不监听 HTTP 端口，不发送通知邮件，也不重置已有权限或授予状态。正常启动只同步作者及兼容旧审核员，不重新创建被运营人员移除的示例勋章。
+
+## 草稿持久化与历史版本
+
+- 点击“保存草稿”后，当前文本与附件引用写入 `gallery_submissions`；尚未保存的输入和待上传文件仍只存在当前浏览器页面中。本次没有自动保存。
+- `gallery_submission_versions` 保留不可变快照，按“投稿标识 + revision”唯一标识。新建、保存、上传/移除附件、提交、撤回、审核、下架/重新上架、更新渲染链接及删除草稿均记录成功提交后的状态；失败事务不留版本，幂等重试不重复留档。
+- 附件以不可变文件引用保存，文件替换或移除不会删除旧快照使用的文件。备份应同时包含数据库与 `GALLERY_STORAGE_DIR`（默认 `runtime/gallery-assets`）。快照本身不保存临时签名 URL，读取历史版本时重新签名。
+- 新版投稿的 revision 从 1 开始；同一作品的各次投稿会汇总展示，时间和投稿标识区分不同投稿。已删除的新版草稿仍可从该作品其他投稿的历史中查询；独立草稿删除后，仅后台可查看其存档。
+- 前台作品详情新增“已储存版本”：按需展开、分页查看历史、查看只读内容及当时的附件。不执行版本恢复，也不会改变当前草稿或已发布 Template。
+- Strapi Content Manager 新增 **Gallery 投稿与草稿**（当前状态）和 **Gallery 投稿历史版本**（不可变存档）。两者只读；可按作者 UID、投稿标识、状态、版本号等筛选。当前投稿的 key 对应历史记录的 submissionKey。管理员仍通过 Gallery 工作台执行编辑或审核，不能直接改 JSON 绕过校验。
+- CMS 管理角色需要由超级管理员分配这两个 collection 的读取权限；普通统一账号不能调用 CMS 模型 CRUD。作者只能查自己的历史，审核员通过 `/admin/gallery` 路径查询。
+
+接口（均需统一账号 Bearer token，响应 `{ data }`）：
+
+- `GET /api/gallery/submissions/:id/versions?page=1&limit=20`：`{ items: [{id,submissionId,revision,title,reviewStatus,action,savedAt}], pagination }`。
+- `GET /api/gallery/submissions/:id/versions/:versionId`：`{id,submissionId,revision,reviewStatus,action,savedAt,snapshot}`。snapshot 为草稿字段、当时的渲染链接与签名附件列表。
+- 审核员对应接口使用 `/api/admin/gallery/submissions/:id/versions[/:versionId]`。
+
+首次启动会为已有投稿补录当前状态为 `baseline`，不会覆盖已留存版本。此前未记录且被覆盖的内容无法重建。初始化本地数据库前停止开发服务，使用对应项目 Node 20：
+
+```sh
+node scripts/init-gallery-versions.js --apply --sqlite /absolute/path/to/data/database.db
+```
+
+脚本先备份选定的本地 SQLite，再同步模型、补录版本，最后退出；不监听 HTTP、不发送审核邮件。数据库迁移期间应保持开发服务关闭。
