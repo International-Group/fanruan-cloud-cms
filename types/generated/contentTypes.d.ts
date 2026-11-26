@@ -764,6 +764,15 @@ export interface ApiDoraScenarioDoraScenario
       'api::dora-scenario.dora-scenario'
     >;
     publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'title'> &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     tags: Schema.Attribute.Component<'shared.tag', true> &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
