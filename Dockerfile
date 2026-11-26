@@ -1,7 +1,10 @@
 FROM node:22.23.3-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
+RUN apk add --no-cache --virtual .node-build-deps python3 make g++ \
+    && npm_config_nodedir=/usr/local npm ci \
+    && npm cache clean --force \
+    && apk del .node-build-deps
 
 FROM dependencies AS build
 ENV NODE_ENV=production STRAPI_TELEMETRY_DISABLED=true
