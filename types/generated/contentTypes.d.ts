@@ -616,6 +616,173 @@ export interface ApiDocDoc extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiDoraBusinessDomainDoraBusinessDomain
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'dora_business_domains';
+  info: {
+    displayName: 'Dora \u4E1A\u52A1\u57DF';
+    pluralName: 'dora-business-domains';
+    singularName: 'dora-business-domain';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::dora-business-domain.dora-business-domain'
+    >;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDoraIndustryDoraIndustry
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'dora_industries';
+  info: {
+    displayName: 'Dora \u884C\u4E1A';
+    pluralName: 'dora-industries';
+    singularName: 'dora-industry';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::dora-industry.dora-industry'
+    >;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDoraScenarioDoraScenario
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'dora_scenarios';
+  info: {
+    displayName: 'Dora \u573A\u666F\u8D44\u6E90\u5E93';
+    pluralName: 'dora-scenarios';
+    singularName: 'dora-scenario';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    businessDomains: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::dora-business-domain.dora-business-domain'
+    >;
+    company: Schema.Attribute.String &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    companyLogo: Schema.Attribute.Media<'images'> &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    content: Schema.Attribute.RichText &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    cover: Schema.Attribute.Media<'images'> &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    industries: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::dora-industry.dora-industry'
+    >;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::dora-scenario.dora-scenario'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    tags: Schema.Attribute.Component<'shared.tag', true> &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiGalleryAssetGalleryAsset
   extends Struct.CollectionTypeSchema {
   collectionName: 'gallery_assets';
@@ -2174,6 +2341,9 @@ declare module '@strapi/strapi' {
       'api::dictionary.dictionary': ApiDictionaryDictionary;
       'api::doc-page.doc-page': ApiDocPageDocPage;
       'api::doc.doc': ApiDocDoc;
+      'api::dora-business-domain.dora-business-domain': ApiDoraBusinessDomainDoraBusinessDomain;
+      'api::dora-industry.dora-industry': ApiDoraIndustryDoraIndustry;
+      'api::dora-scenario.dora-scenario': ApiDoraScenarioDoraScenario;
       'api::gallery-asset.gallery-asset': ApiGalleryAssetGalleryAsset;
       'api::gallery-badge.gallery-badge': ApiGalleryBadgeGalleryBadge;
       'api::gallery-contact.gallery-contact': ApiGalleryContactGalleryContact;

@@ -1,6 +1,7 @@
 'use strict';
 const userBehaviorQueue = require('./api/user-behavior/utils/user-behavior-queue');
 const { createSlugHistoryMiddleware } = require('./api/template/utils/slug-history');
+const initializeDoraLibrary = require('./api/dora-scenario/utils/initialize');
 
 module.exports = {
   /**
@@ -26,6 +27,7 @@ module.exports = {
     // Example content is initialized explicitly with scripts/seed.js, never on server startup.
     await strapi.service('api::gallery.creator-operations').initialize();
     await strapi.service('api::gallery.versions').initialize();
+    await initializeDoraLibrary(strapi);
     userBehaviorQueue.start(strapi);
     strapi.service('api::gallery.notifications').start();
   },

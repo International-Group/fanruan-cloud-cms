@@ -1,0 +1,94 @@
+{
+  "kind": "collectionType",
+  "collectionName": "dora_scenarios",
+  "info": {
+    "singularName": "dora-scenario",
+    "pluralName": "dora-scenarios",
+    "displayName": "Dora 场景资源库"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "title": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "required": true
+    },
+    "industries": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::dora-industry.dora-industry"
+    },
+    "businessDomains": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::dora-business-domain.dora-business-domain"
+    },
+    "cover": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "company": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "string"
+    },
+    "companyLogo": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "tags": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "component",
+      "component": "shared.tag",
+      "repeatable": true
+    },
+    "content": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "richtext",
+      "required": true
+    }
+  }
+}
