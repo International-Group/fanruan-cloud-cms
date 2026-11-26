@@ -132,6 +132,32 @@ The frontend disables view/share/download effects and GTM during preview,
 provides an Exit preview link, and expires the signed preview session after
 one hour. Preview has no effect on publishing or slug history.
 
+## Dora 场景资源库
+
+在 Strapi 内容管理器中编辑 **Dora 场景资源库**。场景支持草稿和发布，每条可关联多个行业和业务域。分类在 **Dora 行业** 和 **Dora 业务域** 中维护，前端用分类的 `slug` 筛选。
+
+- 三个集合都支持 Strapi 多语言。切换场景的语言版本后，从同一语言的行业和业务域中选择关联。翻译同一分类时沿用原 `slug`，例如 `manufacturing`。
+- 场景列表 `GET /api/dora-scenarios`，详情 `GET /api/dora-scenarios/:documentId`。
+- 分类列表 `GET /api/dora-industries` 和 `GET /api/dora-business-domains`。
+- 三个接口都接受 `locale`，使用 Strapi 配置里的语言代码。繁中台湾使用 `zh-Hant-TW`，省略参数时读取 Strapi 的默认语言。
+- 使用现有的 Content API 认证。自定义只读令牌需要场景的 `find`、`findOne`，以及两个分类的 `find` 权限。
+
+列表查询示例。同一分类内的多个选项取并集，行业与业务域之间取交集。
+
+```js
+const query = qs.stringify({
+  locale: 'zh-Hant-TW',
+  fields: ['title', 'description', 'company'],
+  filters: {
+    industries: { slug: { $in: ['manufacturing', 'consumer'] } },
+    businessDomains: { slug: { $in: ['supply-chain'] } },
+  },
+  populate: ['industries', 'businessDomains', 'cover', 'companyLogo', 'tags'],
+}, { encodeValuesOnly: true });
+```
+
+详情请求可用 `?populate=*` 带回分类、图片和标签。Markdown 正文在 `content` 字段，标签是 `[{ tag: "供应链分析" }]` 这样的组件列表。
+
 ## 📚 Learn more
 
 - [Resource center](https://strapi.io/resource-center) - Strapi resource center.
