@@ -32,7 +32,7 @@ test('Solution Page REST API stores localized MDX, file and SEO without exposing
   fs.copyFileSync(path.join(source, 'package.json'), path.join(dir, 'package.json'));
   const write = (name, content) => fs.writeFileSync(path.join(dir, 'config', name), content);
   write('database.js', `module.exports=()=>({connection:{client:'sqlite',connection:{filename:${JSON.stringify(path.join(dir, 'data/solution.db'))}},useNullAsDefault:true}});`);
-  write('server.js', "module.exports=()=>({host:'127.0.0.1',port:0,app:{keys:['solution-test-key']}});");
+  write('server.js', "module.exports=()=>({host:'127.0.0.1',port:0,app:{keys:['solution-test-key']},logger:{updates:{enabled:false}}});");
   write('admin.js', "module.exports=()=>({serveAdminPanel:false,auth:{secret:'test-admin-secret'},apiToken:{salt:'test-api-salt'},transfer:{token:{salt:'test-transfer-salt'}},secrets:{encryptionKey:'test-encryption-key'}});");
   write('plugins.js', "module.exports=()=>({cloud:{enabled:false},upload:{config:{provider:'local'}},'users-permissions':{config:{jwtSecret:'test-jwt-secret'}}});");
   write('gallery.js', "module.exports=()=>({mail:{enabled:false}});");
