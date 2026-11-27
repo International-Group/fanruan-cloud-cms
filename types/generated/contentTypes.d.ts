@@ -1586,6 +1586,70 @@ export interface ApiResourceResource extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiSolutionPageSolutionPage
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'solution_pages';
+  info: {
+    description: 'Localized Solutions pages with an MDX body and an optional download.';
+    displayName: 'Solution Page';
+    pluralName: 'solution-pages';
+    singularName: 'solution-page';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    content: Schema.Attribute.RichText &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    downloadFile: Schema.Attribute.Media<'files'> &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::solution-page.solution-page'
+    >;
+    path: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 180;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    seo: Schema.Attribute.Component<'shared.seo', false> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiTemplateSlugTemplateSlug
   extends Struct.CollectionTypeSchema {
   collectionName: 'template_slugs';
@@ -2366,6 +2430,7 @@ declare module '@strapi/strapi' {
       'api::insight.insight': ApiInsightInsight;
       'api::landing.landing': ApiLandingLanding;
       'api::resource.resource': ApiResourceResource;
+      'api::solution-page.solution-page': ApiSolutionPageSolutionPage;
       'api::template-slug.template-slug': ApiTemplateSlugTemplateSlug;
       'api::template.template': ApiTemplateTemplate;
       'api::user-behavior.user-behavior': ApiUserBehaviorUserBehavior;

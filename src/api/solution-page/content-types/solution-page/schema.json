@@ -1,0 +1,62 @@
+{
+  "kind": "collectionType",
+  "collectionName": "solution_pages",
+  "info": {
+    "singularName": "solution-page",
+    "pluralName": "solution-pages",
+    "displayName": "Solution Page",
+    "description": "Localized Solutions pages with an MDX body and an optional download."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "path": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 180,
+      "regex": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "content": {
+      "type": "richtext",
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "downloadFile": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["files"],
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "seo": {
+      "type": "component",
+      "component": "shared.seo",
+      "repeatable": false,
+      "required": true,
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    }
+  }
+}
