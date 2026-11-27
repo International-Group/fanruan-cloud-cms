@@ -4,29 +4,42 @@ const queue = require('../src/api/user-behavior/utils/user-behavior-queue');
 const app = require('../src/index');
 const initializeDoraLibrary = require('../src/api/dora-scenario/utils/initialize');
 
-test('startup starts the queue without importing examples or modifying setup stores', async () => {
+test('startup starts services and reserves Solution Page tables without importing examples', async () => {
   const originalStart = queue.start;
   const previousStrapi = global.strapi;
   const originalEnvironment = process.env.NODE_ENV;
   let mailStarted = false;
   let authorsInitialized = false;
   let versionsInitialized = false;
+  let retainedTables = ['dora_scenarios'];
   const services = {
     'api::gallery.creator-operations': { async initialize() { authorsInitialized = true; } },
     'api::gallery.versions': { async initialize() { versionsInitialized = true; } },
     'api::gallery.notifications': { start() { mailStarted = true; } },
   };
   const runtime = {
-    db: { transaction: callback => callback() },
+    db: {
+      transaction: callback => callback(),
+      schema: { schema: { tables: [{ name: 'solution_pages' }, { name: 'solution_pages_cmps' }] } },
+    },
     plugin: () => ({ service: () => ({ getDefaultLocale: async () => 'en', find: async () => [{ code: 'en' }] }) }),
     service(uid) {
       assert.ok(Object.hasOwn(services, uid), `Unexpected startup service ${uid}`);
       return services[uid];
     },
-    store(options) {
+    store: Object.assign((options) => {
       assert.deepEqual(options, { type: 'core', name: 'dora-library' });
       return { get: async ({ key }) => ({ initialized: true, localized_locales: ['en'] })[key] };
-    },
+    }, {
+      get: async (key) => {
+        assert.deepEqual(key, { type: 'core', key: 'persisted_tables' });
+        return retainedTables;
+      },
+      set: async ({ value, ...key }) => {
+        assert.deepEqual(key, { type: 'core', key: 'persisted_tables' });
+        retainedTables = value;
+      },
+    }),
   };
   let startedWith;
   queue.start = value => { startedWith = value; };
@@ -38,6 +51,7 @@ test('startup starts the queue without importing examples or modifying setup sto
     assert.equal(mailStarted, true);
     assert.equal(authorsInitialized, true);
     assert.equal(versionsInitialized, true);
+    assert.deepEqual(retainedTables, ['dora_scenarios', 'solution_pages', 'solution_pages_cmps']);
   } finally {
     queue.start = originalStart;
     if (previousStrapi === undefined) delete global.strapi;

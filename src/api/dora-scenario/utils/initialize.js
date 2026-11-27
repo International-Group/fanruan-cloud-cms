@@ -1,25 +1,13 @@
 'use strict';
 
 const taxonomies = require('./taxonomies');
+const reserveSchemaTables = require('../../../utils/reserve-schema-tables');
 
 function labelLanguage(code) {
   const locale = new Intl.Locale(code);
   return locale.language === 'zh' && locale.maximize().script === 'Hant'
     ? 'zh-Hant'
     : locale.language;
-}
-
-async function reserveDoraTables(strapi) {
-  // A previous release would otherwise drop newly tracked tables during rollback.
-  const key = { type: 'core', key: 'persisted_tables' };
-  const persisted = (await strapi.store.get(key)) ?? [];
-  const reserved = new Set(persisted.map(table => typeof table === 'string' ? table : table.name));
-  const newTables = strapi.db.schema.schema.tables
-    .filter(({ name }) => name.startsWith('dora_') && !reserved.has(name))
-    .map(({ name }) => ({ name }));
-  if (newTables.length > 0) {
-    await strapi.store.set({ ...key, value: [...persisted, ...newTables] });
-  }
 }
 
 async function initializeDoraLibrary(strapi) {
@@ -35,7 +23,7 @@ async function initializeDoraLibrary(strapi) {
     const seeded = (await store.get({ key: 'localized_locales' })) ?? [];
     const pending = locales.filter(({ code }) => !seeded.includes(code));
     if (initialized && pending.length === 0) return;
-    if (!initialized) await reserveDoraTables(strapi);
+    if (!initialized) await reserveSchemaTables(strapi, 'dora_');
     const localizeDefault = !seeded.includes(defaultLocale);
 
     for (const [uid, labels] of Object.entries(taxonomies)) {

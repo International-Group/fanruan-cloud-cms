@@ -1,7 +1,9 @@
 'use strict';
 const userBehaviorQueue = require('./api/user-behavior/utils/user-behavior-queue');
 const { createSlugHistoryMiddleware } = require('./api/template/utils/slug-history');
+const { createSolutionPagePathMiddleware } = require('./api/solution-page/utils/path');
 const initializeDoraLibrary = require('./api/dora-scenario/utils/initialize');
+const reserveSchemaTables = require('./utils/reserve-schema-tables');
 
 module.exports = {
   /**
@@ -12,6 +14,7 @@ module.exports = {
    */
   register({ strapi }) {
     strapi.documents.use(createSlugHistoryMiddleware(strapi));
+    strapi.documents.use(createSolutionPagePathMiddleware(strapi));
     strapi.documents.use((context, next) => strapi.service('api::gallery.creator-operations').middleware(context, next));
     strapi.documents.use((context, next) => strapi.service('api::gallery.versions').middleware(context, next));
   },
@@ -28,6 +31,7 @@ module.exports = {
     await strapi.service('api::gallery.creator-operations').initialize();
     await strapi.service('api::gallery.versions').initialize();
     await initializeDoraLibrary(strapi);
+    await reserveSchemaTables(strapi, 'solution_pages');
     userBehaviorQueue.start(strapi);
     strapi.service('api::gallery.notifications').start();
   },
